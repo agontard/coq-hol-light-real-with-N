@@ -21,12 +21,12 @@ Axiom proof_irrelevance : forall (P:Prop) (p1 p2:P), p1 = p2.
 
 ```
 opam repo add coq-released https://coq.inria.fr/opam/released
-opam install coq-hol-light-real
+opam install coq-hol-light-real-with-N
 ```
 
 **Usage in a Coq file**
 
 ```
-Require Import HOLLight_Real.theorems.
+Require Import HOLLight_Real_With_N.theorems.
 Check thm_REAL_COMPLETE.
 ```
