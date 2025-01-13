@@ -1,5 +1,5 @@
-HOL-Light definition of real numbers in Coq
--------------------------------------------
+HOL-Light definition of real numbers in Coq using N
+---------------------------------------------------
 
 This library provides a translation in Coq of the definition of real numbers in HOL-Light, using the Coq type N for natural numbers.
 
