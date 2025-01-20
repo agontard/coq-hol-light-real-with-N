@@ -1,13 +1,13 @@
 HOL-Light definition of real numbers in Coq using N
 ---------------------------------------------------
 
-This library provides a translation in Coq of the definition of real numbers in HOL-Light, using the Coq type N for natural numbers.
+This library provides a translation in Coq of the definition of real numbers in HOL-Light, using the Coq type N for natural numbers (it is an adaptation of [coq-hol-light-real-with-nat](https://github.com/Deducteam/coq-hol-light-real-with-nat/)).
 
 It has been automatically generated from HOL-Light using [hol2dk](https://github.com/Deducteam/hol2dk) and [lambdapi](https://github.com/Deducteam/lambdapi).
 
 Proofs are not included but can be regenerated and rechecked by running [reproduce](https://github.com/Deducteam/coq-hol-light-real/blob/main/reproduce) (it takes about 7 minutes on a machine with 32 processors Intel Core i9-13950HX and 64 Gb RAM).
 
-As HOL-Light is based on higher-order logic, this library assumes classical logic, Hilbert's ε operator, functional and propositional extensionnality (see [HOLLight.v](https://github.com/Deducteam/coq-hol-light-real/blob/main/HOLLight.v) for more details):
+As HOL-Light is based on higher-order logic, this library assumes classical logic, Hilbert's ε operator, functional and propositional extensionnality:
 
 ```
 Axiom classic : forall P:Prop, P \/ ~ P.
