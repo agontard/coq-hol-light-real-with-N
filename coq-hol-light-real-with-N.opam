@@ -17,9 +17,9 @@ depends: [
 build: [make "-j%{jobs}%"]
 install: [make "install"]
 tags: [
-  "keyword:HOL-Light"
+  "logpath:HOLLight_Real_With_N"
+  "date:2025-01-21"
   "category:Math/Arith/Misc"
   "category:Math/Arith/Real numbers"
-  "date:2025-01-20"
-  "logpath:HOLLight_Real_With_N"
+  "keyword:HOL-Light"
 ]
