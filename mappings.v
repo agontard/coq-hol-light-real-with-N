@@ -292,10 +292,7 @@ Proof.
     reflexivity.
 Qed.
 
-Lemma prove_COND (P Q R : Prop) :
-  (P -> Q) ->
-  (~ P -> R) ->
-  COND P Q R.
+Lemma prove_COND (P Q R : Prop) : (P -> Q) -> (~ P -> R) -> COND P Q R.
 Proof.
   intros hq hr.
   destruct (prop_degen P) as [-> | ->].
@@ -303,11 +300,7 @@ Proof.
   - rewrite COND_False. apply hr. intro h. exact h.
 Qed.
 
-Lemma COND_elim {P Q R G : Prop} :
-  COND P Q R ->
-  (P -> Q -> G) ->
-  (~ P -> R -> G) ->
-  G.
+Lemma COND_elim {P Q R G : Prop} : COND P Q R -> (P -> Q -> G) -> (~ P -> R -> G) -> G.
 Proof.
   intros h hq hr.
   destruct (prop_degen P) as [-> | ->].
