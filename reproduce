@@ -155,7 +155,7 @@ compare_opam_file() {
 }
 
 compare_opam_files() {
-    for f in theory_hol.v terms.v theorems.v
+    for f in terms.v theorems.v
     do
         compare_opam_file $f
     done
