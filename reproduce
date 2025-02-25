@@ -6,12 +6,12 @@ hollight_version=3.0.0 # for dependencies
 hollight_commit=28e4aed
 hol2dk_commit=3a265dd
 lambdapi_commit=08d0f00d
+ocaml_version=5.2.1
+coq_version=8.20.1
 
 opam_version=2.2.1
-dune_version=3.17.1
-ocaml_version=5.2.1
+dune_version=3.17.2
 camlp5_version=8.03.01
-coq_version=8.20.1
 
 hollight_file=hol_upto_real.ml
 base=`basename $hollight_file .ml`
