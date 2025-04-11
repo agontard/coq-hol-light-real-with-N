@@ -30,3 +30,7 @@ opam install coq-hol-light-real-with-N
 Require Import HOLLight_Real_With_N.theorems.
 Check thm_REAL_COMPLETE.
 ```
+
+**Bibliography**
+
+- [Translating HOL-Light proofs to Coq](https://doi.org/10.29007/6k4x), Frédéric Blanqui, 25th International Conference on Logic for Programming, Artificial Intelligence and Reasoning (LPAR), 2024.
