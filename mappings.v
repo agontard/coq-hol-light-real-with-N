@@ -2165,97 +2165,187 @@ Require Import Coq.Lists.List.
 (****************************************************************************)
 
 (* HOL-Light unnecessary variable elimination *) 
-Lemma hol_uv_elim {U A B : Type'} {g : A -> B} (P : (A -> B) -> Prop) {uv0 : U} : (forall g' : A -> B, P g' <-> forall x : A, g' x = g x) -> g = ε (fun f : U -> A -> B => forall uv : U, P (f uv)) uv0.
+Lemma hol_uv_elim {U A B : Type'} {g : A -> B} (P : (A -> B) -> Prop) {uv0 : U} : 
+(forall g' : A -> B, P g' <-> forall x : A, g' x = g x) -> 
+g = ε (fun f : U -> A -> B => forall uv : U, P (f uv)) uv0.
 Proof. 
-intros. assert (exists g' : U -> A -> B, forall uv' : U, P (g' uv')). exists (fun _ => g). intro. now apply H. apply eq_sym. apply fun_ext. apply H. now apply ε_spec in H0. 
+intro H. assert (He : exists g' : U -> A -> B, forall uv' : U, P (g' uv')). 
+exists (fun _ => g). intro. now apply H. apply eq_sym. apply fun_ext. 
+apply H. now apply ε_spec in He. 
 Qed.
 
 (* automatically translating inductive functions on lists. To be improved ? *) 
-Lemma hol_list_recursive_align {U A B : Type'} {uv0 : U} (x : B) (f : A -> list A -> B -> B) : @ε (U -> list A -> B) (fun f' : U -> list A -> B => forall uv : U, (f' uv nil = x) /\ (forall a : A, forall l : list A, (f' uv (a::l) = f a l (f' uv l)))) uv0 = fix g (l : list A) := match l with |nil => x |a::l => f a l (g l) end.
+Lemma hol_list_recursive_align {U A B : Type'} {uv0 : U} 
+(x : B) (f : A -> list A -> B -> B) : @ε (U -> list A -> B) 
+(fun f' : U -> list A -> B => forall uv : U, (f' uv nil = x) /\ 
+(forall a : A, forall l : list A, (f' uv (a::l) = f a l (f' uv l)))) uv0 = 
+fix g (l : list A) := match l with |nil => x |a::l => f a l (g l) end.
 Proof.
-apply eq_sym. apply (hol_uv_elim (fun f' : list A -> B => f' nil = x /\ (forall (a : A) (l : list A), f' (a :: l) = f a l (f' l)))). split;intros. 
-  { destruct H. induction x0. auto. rewrite H0. now rewrite IHx0. }
-  { split. auto. intros. rewrite H. now rewrite H. }
+apply eq_sym. apply (hol_uv_elim (fun f' : list A -> B => f' nil = x /\ 
+  (forall (a : A) (l : list A), f' (a :: l) = f a l (f' l)))). split. 
+  - intros (Hn,Hc) l. induction l. auto. rewrite Hc. now rewrite IHl. 
+  - intro H. split. auto. intros. rewrite H. now rewrite H. 
 Qed.
 
-(* variant for when a is quantified second in the f(a::l) definition. Why do both exist ? *)
-Lemma hol_list_recursive_align_varright {U A B : Type'} {uv0 : U} (x : B) (f : A -> list A -> B -> B) : @ε (U -> list A -> B) (fun f' : U -> list A -> B => forall uv : U, (f' uv nil = x) /\ (forall (l : list A) (a : A), (f' uv (a::l) = f a l (f' uv l)))) uv0 = fix g (l : list A) := match l with |nil => x |a::l => f a l (g l) end.
+(* variant for when a is quantified second in the f(a::l) definition. 
+Why do both exist ? *)
+Lemma hol_list_recursive_align_varright {U A B : Type'} {uv0 : U} 
+(x : B) (f : A -> list A -> B -> B) : @ε (U -> list A -> B) 
+(fun f' : U -> list A -> B => forall uv : U, (f' uv nil = x) /\ 
+(forall (l : list A) (a : A), (f' uv (a::l) = f a l (f' uv l)))) uv0 = 
+fix g (l : list A) := match l with |nil => x |a::l => f a l (g l) end.
 Proof.
-apply eq_sym. apply (hol_uv_elim (fun f' : list A -> B => f' nil = x /\ (forall (l : list A) (a : A), f' (a :: l) = f a l (f' l)))). split;intros. 
-  { destruct H. induction x0. auto. rewrite H0. now rewrite IHx0. }
-  { split. auto. intros. rewrite H. now rewrite H. }
+apply eq_sym. apply (hol_uv_elim (fun f' : list A -> B => f' nil = x /\ 
+(forall (l : list A) (a : A), f' (a :: l) = f a l (f' l)))). split. 
+  - intros (Hn,Hc) l. induction l. auto. rewrite Hc. now rewrite IHl. 
+  - intro H. split. auto. intros. rewrite H. now rewrite H. 
 Qed.
 
-Lemma hol_list_recursive_align2 {U A B C : Type'} {uv0 : U} {TB : B -> B} (x : B -> C) (f : B -> A -> list A -> C -> C) : @ε (U -> B -> list A -> C) (fun f' : U -> B -> list A -> C => forall uv : U, (forall b : B, f' uv b nil = x b) /\ (forall a : A, forall b : B, forall l : list A, (f' uv b (a::l) = f b a l (f' uv (TB b) l)))) uv0 = fix g (b : B) (l : list A) := match l with |nil => x b |a::l => f b a l (g (TB b) l) end.
+Lemma hol_list_recursive_align2 {U A B C : Type'} {uv0 : U} {TB : B -> B} 
+(x : B -> C) (f : B -> A -> list A -> C -> C) : @ε (U -> B -> list A -> C) 
+(fun f' : U -> B -> list A -> C => forall uv : U, 
+(forall b : B, f' uv b nil = x b) /\ 
+(forall a : A, forall b : B, forall l : list A, (f' uv b (a::l) = 
+f b a l (f' uv (TB b) l)))) uv0 = 
+fix g (b : B) (l : list A) := match l with 
+|nil => x b |a::l => f b a l (g (TB b) l) end.
 Proof.
-apply eq_sym. apply (hol_uv_elim (fun f' : B -> list A -> C => (forall b : B, f' b nil = x b) /\ (forall (a : A) (b : B) (l : list A), f' b (a :: l) = f b a l (f' (TB b) l)))). split;intros. 
-  { destruct H. ext l. revert x0. induction l. auto. intro. rewrite H0. now rewrite IHl. }
-  { split;intros. now rewrite H. rewrite H. now rewrite H. }
+apply eq_sym. apply (hol_uv_elim (fun f' : B -> list A -> C => 
+(forall b : B, f' b nil = x b) /\ (forall (a : A) (b : B) (l : list A),
+f' b (a :: l) = f b a l (f' (TB b) l)))). split. 
+  - intros (Hn,Hc) b. ext l. revert b. induction l. auto. intro. rewrite Hc.
+  now rewrite IHl.
+  - split. intro b. now rewrite H. intros a b l. rewrite H. now rewrite H.
 Qed.
 
-Lemma hol_list_recursive_align2_varmid {U A B C : Type'} {uv0 : U} {TB : B -> B} (x : B -> C) (f : B -> A -> list A -> C -> C) : @ε (U -> B -> list A -> C) (fun f' : U -> B -> list A -> C => forall uv : U, (forall b : B, f' uv b nil = x b) /\ (forall (b : B) (a : A) (l : list A), (f' uv b (a::l) = f b a l (f' uv (TB b) l)))) uv0 = fix g (b : B) (l : list A) := match l with |nil => x b |a::l => f b a l (g (TB b) l) end.
+Lemma hol_list_recursive_align2_varmid {U A B C : Type'} {uv0 : U} {TB : B -> B} 
+(x : B -> C) (f : B -> A -> list A -> C -> C) : @ε (U -> B -> list A -> C) 
+(fun f' : U -> B -> list A -> C => forall uv : U, 
+(forall b : B, f' uv b nil = x b) /\ 
+(forall (b : B) (a : A) (l : list A), (f' uv b (a::l) = 
+f b a l (f' uv (TB b) l)))) uv0 = 
+fix g (b : B) (l : list A) := match l with 
+|nil => x b |a::l => f b a l (g (TB b) l) end.
 Proof.
-apply eq_sym. apply (hol_uv_elim (fun f' : B -> list A -> C => (forall b : B, f' b nil = x b) /\ (forall (b : B) (a : A) (l : list A), f' b (a :: l) = f b a l (f' (TB b) l)))). split;intros. 
-  { destruct H. ext l. revert x0. induction l. auto. intro. rewrite H0. now rewrite IHl. }
-  { split;intros. now rewrite H. rewrite H. now rewrite H. }
+apply eq_sym. apply (hol_uv_elim (fun f' : B -> list A -> C => 
+(forall b : B, f' b nil = x b) /\ (forall (b : B) (a : A) (l : list A), 
+f' b (a :: l) = f b a l (f' (TB b) l)))). split. 
+  - intros (Hn,Hc) b. ext l. revert b. induction l. auto. intro. 
+  rewrite Hc. now rewrite IHl. 
+  - split. intro b. now rewrite H. intros b a l. rewrite H. now rewrite H.
 Qed.
 
-Lemma hol_list_recursive_align3 {U A B C D : Type'} {uv0 : U} {TB : B -> B} {TC : C -> C} (x : B -> C -> D) (f : B -> A -> list A -> C -> D -> D) : @ε (U -> B -> list A -> C -> D) (fun f' : U -> B -> list A -> C -> D => forall uv : U, (forall b : B, forall c:C, f' uv b nil c = x b c) /\ (forall a : A, forall b : B, forall l : list A, forall c : C, (f' uv b (a::l) c = f b a l c (f' uv (TB b) l (TC c))))) uv0 = fix g (b : B) (l : list A) (c : C) := match l with |nil => x b c |a::l => f b a l c (g (TB b) l (TC c)) end.
+Lemma hol_list_recursive_align3 {U A B C D : Type'} {uv0 : U} {TB : B -> B} 
+{TC : C -> C} (x : B -> C -> D) (f : B -> A -> list A -> C -> D -> D) : 
+@ε (U -> B -> list A -> C -> D) (fun f' : U -> B -> list A -> C -> D => 
+forall uv : U, (forall b : B, forall c:C, f' uv b nil c = x b c) /\ 
+(forall a : A, forall b : B, forall l : list A, forall c : C, 
+(f' uv b (a::l) c = f b a l c (f' uv (TB b) l (TC c))))) uv0 = 
+fix g (b : B) (l : list A) (c : C) := match l with 
+|nil => x b c |a::l => f b a l c (g (TB b) l (TC c)) end.
 Proof.
-apply eq_sym. apply (hol_uv_elim (fun f' : B -> list A -> C -> D => (forall (b : B) (c : C), f' b nil c = x b c) /\ (forall (a : A) (b : B) (l : list A) (c : C), f' b (a :: l) c = f b a l c (f' (TB b) l (TC c))))). split;intros. 
-  { destruct H. ext l. revert x0. induction l;intro;ext c. auto. rewrite H0. now rewrite IHl. }
-  { split;intros. now rewrite H. rewrite H. now rewrite H. }
+apply eq_sym. apply (hol_uv_elim (fun f' : B -> list A -> C -> D => 
+(forall (b : B) (c : C), f' b nil c = x b c) /\ 
+(forall (a : A) (b : B) (l : list A) (c : C), f' b (a :: l) c = 
+f b a l c (f' (TB b) l (TC c))))). split.
+  - intros (Hn,Hc) b. ext l. revert b. induction l;intro b;ext c. auto. 
+  rewrite Hc. now rewrite IHl.
+  - split. intros b c. now rewrite H. intros a b l c. rewrite H. now rewrite H.
 Qed.
 
 (* the specific case of partial maps where only the nil case is let unknown *)
-Lemma hol_list_partial_align {U A B : Type'} {uv0 : U} (f : A -> list A -> B -> B) : let g:= @ε (U -> list A -> B) (fun f' : U -> list A -> B => forall uv : U, (forall a : A, forall l : list A, (f' uv (a::l) = f a l (f' uv l)))) uv0 in 
-g = fix h (l : list A) := match l with |nil => g nil |a::l => f a l (g l) end.
+Lemma hol_list_partial_align {U A B : Type'} {uv0 : U} 
+(f : A -> list A -> B -> B) : let g:= @ε (U -> list A -> B) 
+(fun f' : U -> list A -> B => forall uv : U, (forall a : A, forall l : list A, 
+(f' uv (a::l) = f a l (f' uv l)))) uv0 in g = fix h (l : list A) := 
+match l with |nil => g nil |a::l => f a l (g l) end.
 Proof.
-assert (exists g' : U -> list A -> B, forall uv' : U, (forall a : A, forall l : list A, (g' uv' (a::l) = f a l (g' uv' l)))). 
-  { now exists (fix g'' uv' l := match l with |nil => el B |a::l => f a l (g'' uv' l) end). }
-  { apply ε_spec in H. ext x. now induction x. }
+assert (He : exists g' : U -> list A -> B, forall uv' : U, 
+(forall a : A, forall l : list A, (g' uv' (a::l) = f a l (g' uv' l)))). 
+  - now exists (fix g'' uv' l := match l with |nil => el B 
+  |a::l => f a l (g'' uv' l) end).
+  - apply ε_spec in He. ext l. now induction l. 
 Qed.
 
-Lemma hol_list_partial_align_varright {U A B : Type'} {uv0 : U} (f : A -> list A -> B -> B) : let g:= @ε (U -> list A -> B) (fun f' : U -> list A -> B => forall uv : U, (forall (l : list A) (a:A), (f' uv (a::l) = f a l (f' uv l)))) uv0 in 
-g = fix h (l : list A) := match l with |nil => g nil |a::l => f a l (h l) end.
+Lemma hol_list_partial_align_varright {U A B : Type'} {uv0 : U} 
+(f : A -> list A -> B -> B) : let g:= @ε (U -> list A -> B) 
+(fun f' : U -> list A -> B => forall uv : U, (forall (l : list A) (a:A), 
+(f' uv (a::l) = f a l (f' uv l)))) uv0 in g = fix h (l : list A) := 
+match l with |nil => g nil |a::l => f a l (h l) end.
 Proof.
-assert (exists g' : U -> list A -> B, forall uv' : U, (forall (l : list A) (a:A), (g' uv' (a::l) = f a l (g' uv' l)))). 
-  { now exists (fix g'' uv' l := match l with |nil => el B |a::l => f a l (g'' uv' l) end). }
-  { apply ε_spec in H. simpl in H. ext l. induction l. auto. rewrite H. now rewrite <- IHl. }
+assert (He : exists g' : U -> list A -> B, forall uv' : U, 
+(forall (l : list A) (a:A), (g' uv' (a::l) = f a l (g' uv' l)))). 
+  - now exists (fix g'' uv' l := match l with |nil => el B 
+  |a::l => f a l (g'' uv' l) end).
+  - apply ε_spec in He. simpl in He. ext l. induction l. auto. rewrite He. 
+  now rewrite <- IHl.
 Qed.
 
-Lemma hol_list_partial_align2 {U A B C : Type'} {uv0 : U} {TB : B -> B} (f : B -> A -> list A -> C -> C) : let g:= @ε (U -> B -> list A -> C) (fun f' : U -> B -> list A -> C => forall uv : U, (forall (a : A) (b : B) (l : list A), (f' uv b (a::l) = f b a l (f' uv (TB b) l)))) uv0 in 
-g = fix h b (l : list A) := match l with |nil => g b nil |a::l => f b a l (h (TB b) l) end.
+Lemma hol_list_partial_align2 {U A B C : Type'} {uv0 : U} {TB : B -> B} 
+(f : B -> A -> list A -> C -> C) : let g:= @ε (U -> B -> list A -> C) 
+(fun f' : U -> B -> list A -> C => forall uv : U, (forall (a : A) (b : B) 
+(l : list A), (f' uv b (a::l) = f b a l (f' uv (TB b) l)))) uv0 in 
+g = fix h b (l : list A) := 
+match l with |nil => g b nil |a::l => f b a l (h (TB b) l) end.
 Proof.
-assert (exists g' : U -> B -> list A -> C, forall (uv' : U) (a : A) (b : B) (l : list A), (g' uv' b (a::l) = f b a l (g' uv' (TB b) l))). 
-  { now exists (fix g'' uv' b l := match l with |nil => el C |a::l => f b a l (g'' uv' (TB b) l) end). }
-  { apply ε_spec in H. simpl in H. ext b l. revert b. induction l. auto. intro b. rewrite H. now rewrite <- IHl. }
+assert (He : exists g' : U -> B -> list A -> C, 
+forall (uv' : U) (a : A) (b : B) (l : list A), (g' uv' b (a::l) = 
+f b a l (g' uv' (TB b) l))). 
+  - now exists (fix g'' uv' b l := match l with |nil => el C 
+  |a::l => f b a l (g'' uv' (TB b) l) end).
+  - apply ε_spec in He. simpl in He. ext b l. revert b. induction l. 
+  auto. intro b. rewrite He. now rewrite <- IHl.
 Qed.
 
-(* Same kind of theorem but for peano recursion on N, using the bijection between nat and N *)
-Lemma hol_N_recursive_align2 {U A B : Type'} {uv0 : U} {TA : A -> A} (x : A -> B) (f : N -> A -> B -> B) : @ε (U -> N -> A -> B) (fun f' : U -> N -> A -> B => forall uv : U, (forall a : A, f' uv N0 a = x a) /\ (forall (n : N) (a : A), (f' uv (N.succ n) a = f n a (f' uv n (TA a))))) uv0 = let fix g (n : nat) (a : A) := match n with |O => x a |S n => f (N.of_nat n) a (g n (TA a)) end in fun n => g (N.to_nat n).
+(* Same kind of theorem but for peano recursion on N, 
+using the bijection between nat and N *)
+Lemma hol_N_recursive_align2 {U A B : Type'} {uv0 : U} {TA : A -> A} 
+(x : A -> B) (f : N -> A -> B -> B) : @ε (U -> N -> A -> B) 
+(fun f' : U -> N -> A -> B => forall uv : U, (forall a : A, f' uv N0 a = x a) /\ 
+(forall (n : N) (a : A), (f' uv (N.succ n) a = f n a (f' uv n (TA a))))) uv0 = 
+let fix g (n : nat) (a : A) := match n with 
+|O => x a |S n => f (N.of_nat n) a (g n (TA a)) end in fun n => g (N.to_nat n).
 Proof.
-apply eq_sym. apply (hol_uv_elim (fun f' : N -> A -> B => (forall a : A, f' 0 a = x a) /\ (forall (n : N) (a : A), f' (N.succ n) a = f n a (f' n (TA a))))). split;intro H. 
-  { destruct H. apply N.peano_rect. ext a. now rewrite H. intros n IHn. ext a. rewrite H0. rewrite IHn. simpl. rewrite Nnat.N2Nat.inj_succ. now rewrite Nnat.N2Nat.id. }
-  { split;intros. now rewrite H. rewrite H. rewrite H. simpl. rewrite Nnat.N2Nat.inj_succ. now rewrite Nnat.N2Nat.id. }
+apply eq_sym. apply (hol_uv_elim (fun f' : N -> A -> B => 
+(forall a : A, f' 0 a = x a) /\ (forall (n : N) (a : A), f' (N.succ n) a = 
+f n a (f' n (TA a))))). split. 
+  - intros (HO,HS). apply N.peano_rect. ext a. now rewrite HO. intros n IHn.
+  ext a. rewrite HS. rewrite IHn. simpl. rewrite Nnat.N2Nat.inj_succ. 
+  now rewrite Nnat.N2Nat.id.
+  - split. intro a. now rewrite H. intros n a. rewrite H. rewrite H. simpl. 
+  rewrite Nnat.N2Nat.inj_succ. now rewrite Nnat.N2Nat.id.
 Qed.
 
 (* Case for recursion on the second variable *)
-Lemma hol_N_recursive_align2_varright {U A B : Type'} {uv0 : U} {TA : A -> A} (x : A -> B) (f : A -> N -> B -> B) : @ε (U -> A -> N -> B) (fun f' : U -> A -> N -> B => forall uv : U, (forall a : A, f' uv a N0 = x a) /\ (forall (a : A) (n : N), (f' uv a (N.succ n) = f a n (f' uv (TA a) n)))) uv0 = let fix g (a : A) (n : nat) := match n with |O => x a |S n => f a (N.of_nat n) (g (TA a) n) end in fun a n => g a (N.to_nat n).
+Lemma hol_N_recursive_align2_varright {U A B : Type'} {uv0 : U} {TA : A -> A} 
+(x : A -> B) (f : A -> N -> B -> B) : @ε (U -> A -> N -> B) 
+(fun f' : U -> A -> N -> B => forall uv : U, (forall a : A, f' uv a N0 = x a) /\ 
+(forall (a : A) (n : N), (f' uv a (N.succ n) = f a n (f' uv (TA a) n)))) uv0 = 
+let fix g (a : A) (n : nat) := match n with |O => x a 
+|S n => f a (N.of_nat n) (g (TA a) n) end in fun a n => g a (N.to_nat n).
 Proof.
-apply eq_sym. apply (hol_uv_elim (fun f' : A -> N -> B => (forall a : A, f' a 0 = x a) /\ (forall (a : A) (n : N), f' a (N.succ n) = f a n (f' (TA a) n)))). split;intro H. 
-  { destruct H. intro a. ext n. revert n a. 
-  apply (N.peano_rect (fun n => forall (a : A), g' a n = (let fix g (a0 : A) (n0 : nat) {struct n0} : B := match n0 with | 0%nat => x a0 | S n1 => f a0 (N.of_nat n1) (g (TA a0) n1) end in fun (a0 : A) (n0 : N) => g a0 (N.to_nat n0)) a n)). 
-  now intro;rewrite H. intros n IHn a. rewrite H0. rewrite IHn. simpl. rewrite Nnat.N2Nat.inj_succ. now rewrite Nnat.N2Nat.id. }
-  { split;intros. now rewrite H. rewrite H. rewrite H. simpl. rewrite Nnat.N2Nat.inj_succ. now rewrite Nnat.N2Nat.id. }
+apply eq_sym. apply (hol_uv_elim (fun f' : A -> N -> B => 
+(forall a : A, f' a 0 = x a) /\ (forall (a : A) (n : N), f' a (N.succ n) = 
+f a n (f' (TA a) n)))). split. 
+  - intros (HO,HS) a. ext n. revert n a. 
+  apply (N.peano_rect (fun n => forall (a : A), g' a n = 
+  (let fix g (a0 : A) (n0 : nat) {struct n0} : B := match n0 with 
+  | 0%nat => x a0 | S n1 => f a0 (N.of_nat n1) (g (TA a0) n1) end in 
+  fun (a0 : A) (n0 : N) => g a0 (N.to_nat n0)) a n)). 
+  now intro a;rewrite HO. intros n IHn a. rewrite HS. rewrite IHn. simpl. 
+  rewrite Nnat.N2Nat.inj_succ. now rewrite Nnat.N2Nat.id.
+  - split. intro a. now rewrite H. intros a n. rewrite H. rewrite H. simpl. 
+  rewrite Nnat.N2Nat.inj_succ. now rewrite Nnat.N2Nat.id.
 Qed.
 
 (* simplifying a match made with COND over a list *) 
-Lemma COND_list {A B : Type'} {l : list A} {x y : B} : COND (l=nil) x y = match l with |nil => x |a::l => y end.
+Lemma COND_list {A B : Type'} {l : list A} {x y : B} : 
+COND (l=nil) x y = match l with |nil => x |a::l => y end.
 Proof.
-induction l. 
-  { replace (nil=nil) with True. apply COND_True. apply prop_ext;intro;auto. }
-  { replace (a::l = nil) with False. apply COND_False. apply prop_ext;intro. destruct H. apply not_eq_sym in H. destruct H. apply nil_cons. }
+induction l.
+  - replace (nil=nil) with True. apply COND_True. apply prop_ext;intro H;auto.
+  - replace (a::l = nil) with False. apply COND_False. apply prop_ext;intro H. 
+  destruct H. apply not_eq_sym in H. destruct H. apply nil_cons.
 Qed.
 
 (****************************************************************************)
@@ -2275,7 +2365,8 @@ Qed.
 
 Lemma REVERSE_def {A : Type'} : (@rev A) = (@ε ((prod N (prod N (prod N (prod N (prod N (prod N N)))))) -> (list' A) -> list' A) (fun REVERSE' : (prod N (prod N (prod N (prod N (prod N (prod N N)))))) -> (list A) -> list A => forall _17939 : prod N (prod N (prod N (prod N (prod N (prod N N))))), ((REVERSE' _17939 (@nil A)) = (@nil A)) /\ (forall l : list A, forall x : A, (REVERSE' _17939 (@cons A x l)) = (@app A (REVERSE' _17939 l) (@cons A x (@nil A))))) (@pair N (prod N (prod N (prod N (prod N (prod N N))))) (NUMERAL (BIT0 (BIT1 (BIT0 (BIT0 (BIT1 (BIT0 (BIT1 0)))))))) (@pair N (prod N (prod N (prod N (prod N N)))) (NUMERAL (BIT1 (BIT0 (BIT1 (BIT0 (BIT0 (BIT0 (BIT1 0)))))))) (@pair N (prod N (prod N (prod N N))) (NUMERAL (BIT0 (BIT1 (BIT1 (BIT0 (BIT1 (BIT0 (BIT1 0)))))))) (@pair N (prod N (prod N N)) (NUMERAL (BIT1 (BIT0 (BIT1 (BIT0 (BIT0 (BIT0 (BIT1 0)))))))) (@pair N (prod N N) (NUMERAL (BIT0 (BIT1 (BIT0 (BIT0 (BIT1 (BIT0 (BIT1 0)))))))) (@pair N N (NUMERAL (BIT1 (BIT1 (BIT0 (BIT0 (BIT1 (BIT0 (BIT1 0)))))))) (NUMERAL (BIT1 (BIT0 (BIT1 (BIT0 (BIT0 (BIT0 (BIT1 0))))))))))))))).
 Proof.
-now rewrite (hol_list_recursive_align_varright (A:=A) nil (fun a _ b => b ++ a :: nil)).
+now rewrite (hol_list_recursive_align_varright (A:=A) nil (fun a _ b => 
+b ++ a :: nil)).
 Qed.
 
 Lemma LENGTH_def {A : Type'} : (fix f (l : list A) := match l with |nil => N0 |x::l => N.succ (f l) end) = (@ε ((prod N (prod N (prod N (prod N (prod N N))))) -> (list A) -> N) (fun LENGTH' : (prod N (prod N (prod N (prod N (prod N N))))) -> (list A) -> N => forall _18106 : prod N (prod N (prod N (prod N (prod N N)))), ((LENGTH' _18106 (@nil A)) = (N0)) /\ (forall h : A, forall t : list A, (LENGTH' _18106 (@cons A h t)) = (N.succ (LENGTH' _18106 t)))) (@pair N (prod N (prod N (prod N (prod N N)))) ((BIT0 (BIT0 (BIT1 (BIT1 (BIT0 (BIT0 (BIT1 N0)))))))) (@pair N (prod N (prod N (prod N N))) ((BIT1 (BIT0 (BIT1 (BIT0 (BIT0 (BIT0 (BIT1 N0)))))))) (@pair N (prod N (prod N N)) ((BIT0 (BIT1 (BIT1 (BIT1 (BIT0 (BIT0 (BIT1 N0)))))))) (@pair N (prod N N) ((BIT1 (BIT1 (BIT1 (BIT0 (BIT0 (BIT0 (BIT1 N0)))))))) (@pair N N ((BIT0 (BIT0 (BIT1 (BIT0 (BIT1 (BIT0 (BIT1 N0)))))))) ((BIT0 (BIT0 (BIT0 (BIT1 (BIT0 (BIT0 (BIT1 N0)))))))))))))).
@@ -2285,28 +2376,33 @@ Qed.
 
 Lemma MAP_def {A B : Type'} : (@map A B) = (@ε ((prod N (prod N N)) -> (A -> B) -> (list' A) -> list' B) (fun MAP' : (prod N (prod N N)) -> (A -> B) -> (list A) -> list B => forall _17950 : prod N (prod N N), (forall f : A -> B, (MAP' _17950 f (@nil A)) = (@nil B)) /\ (forall f : A -> B, forall h : A, forall t : list A, (MAP' _17950 f (@cons A h t)) = (@cons B (f h) (MAP' _17950 f t)))) (@pair N (prod N N) (NUMERAL (BIT1 (BIT0 (BIT1 (BIT1 (BIT0 (BIT0 (BIT1 0)))))))) (@pair N N (NUMERAL (BIT1 (BIT0 (BIT0 (BIT0 (BIT0 (BIT0 (BIT1 0)))))))) (NUMERAL (BIT0 (BIT0 (BIT0 (BIT0 (BIT1 (BIT0 (BIT1 0))))))))))).
 Proof.
-rewrite (hol_list_recursive_align2_varmid (fun _ => nil) (fun (f : A -> B) a l c => f a :: c)). 
+rewrite (hol_list_recursive_align2_varmid (fun _ => nil) 
+(fun (f : A -> B) a l c => f a :: c)). 
 ext f l. induction l. auto. simpl. now rewrite IHl. 
 Qed.
 
 Lemma BUTLAST_def {_25251 : Type'} : (@removelast _25251) = (@ε ((prod N (prod N (prod N (prod N (prod N (prod N N)))))) -> (list' _25251) -> list' _25251) (fun BUTLAST' : (prod N (prod N (prod N (prod N (prod N (prod N N)))))) -> (list _25251) -> list _25251 => forall _17958 : prod N (prod N (prod N (prod N (prod N (prod N N))))), ((BUTLAST' _17958 (@nil _25251)) = (@nil _25251)) /\ (forall h : _25251, forall t : list _25251, (BUTLAST' _17958 (@cons _25251 h t)) = (@COND (list' _25251) (t = (@nil _25251)) (@nil _25251) (@cons _25251 h (BUTLAST' _17958 t))))) (@pair N (prod N (prod N (prod N (prod N (prod N N))))) (NUMERAL (BIT0 (BIT1 (BIT0 (BIT0 (BIT0 (BIT0 (BIT1 0)))))))) (@pair N (prod N (prod N (prod N (prod N N)))) (NUMERAL (BIT1 (BIT0 (BIT1 (BIT0 (BIT1 (BIT0 (BIT1 0)))))))) (@pair N (prod N (prod N (prod N N))) (NUMERAL (BIT0 (BIT0 (BIT1 (BIT0 (BIT1 (BIT0 (BIT1 0)))))))) (@pair N (prod N (prod N N)) (NUMERAL (BIT0 (BIT0 (BIT1 (BIT1 (BIT0 (BIT0 (BIT1 0)))))))) (@pair N (prod N N) (NUMERAL (BIT1 (BIT0 (BIT0 (BIT0 (BIT0 (BIT0 (BIT1 0)))))))) (@pair N N (NUMERAL (BIT1 (BIT1 (BIT0 (BIT0 (BIT1 (BIT0 (BIT1 0)))))))) (NUMERAL (BIT0 (BIT0 (BIT1 (BIT0 (BIT1 (BIT0 (BIT1 0))))))))))))))).
 Proof.
-rewrite (hol_list_recursive_align (A:= _25251) nil (fun a l b => COND (l=nil) nil (a::b))). 
-ext l. induction l. auto. simpl. rewrite COND_list. induction l. auto. now rewrite IHl. 
+rewrite (hol_list_recursive_align (A:= _25251) nil (fun a l b => 
+COND (l=nil) nil (a::b))). 
+ext l. induction l. auto. simpl. rewrite COND_list. induction l. 
+auto. now rewrite IHl. 
 Qed.
 
 Lemma ALL_def {_25307 : Type'} : (@Forall _25307) = (@ε ((prod N (prod N N)) -> (_25307 -> Prop) -> (list _25307) -> Prop) (fun ALL' : (prod N (prod N N)) -> (_25307 -> Prop) -> (list _25307) -> Prop => forall _17973 : prod N (prod N N), (forall P : _25307 -> Prop, (ALL' _17973 P (@nil _25307)) = True) /\ (forall h : _25307, forall P : _25307 -> Prop, forall t : list _25307, (ALL' _17973 P (@cons _25307 h t)) = ((P h) /\ (ALL' _17973 P t)))) (@pair N (prod N N) (NUMERAL (BIT1 (BIT0 (BIT0 (BIT0 (BIT0 (BIT0 (BIT1 0)))))))) (@pair N N (NUMERAL (BIT0 (BIT0 (BIT1 (BIT1 (BIT0 (BIT0 (BIT1 0)))))))) (NUMERAL (BIT0 (BIT0 (BIT1 (BIT1 (BIT0 (BIT0 (BIT1 0))))))))))).
 Proof.
-rewrite (hol_list_recursive_align2 (A:=_25307) (fun _ => True) (fun P a l c => P a /\ c)). 
-ext P l. apply prop_ext;intro. induction H;try split;auto. induction l. apply Forall_nil. 
-destruct H. apply Forall_cons. auto. now apply IHl.
+rewrite (hol_list_recursive_align2 (A:=_25307) (fun _ => True) 
+(fun P a l c => P a /\ c)). 
+ext P l. apply prop_ext;intro H. induction H;try split;auto. induction l. 
+apply Forall_nil. destruct H. apply Forall_cons. auto. now apply IHl.
 Qed.
 
 Lemma PAIRWISE_def {A : Type'} : (@ForallOrdPairs A) = (@ε ((prod N (prod N (prod N (prod N (prod N (prod N (prod N N))))))) -> (A -> A -> Prop) -> (list A) -> Prop) (fun PAIRWISE' : (prod N (prod N (prod N (prod N (prod N (prod N (prod N N))))))) -> (A -> A -> Prop) -> (list A) -> Prop => forall _18057 : prod N (prod N (prod N (prod N (prod N (prod N (prod N N)))))), (forall r : A -> A -> Prop, (PAIRWISE' _18057 r (@nil A)) = True) /\ (forall h : A, forall r : A -> A -> Prop, forall t : list A, (PAIRWISE' _18057 r (@cons A h t)) = ((@Forall A (r h) t) /\ (PAIRWISE' _18057 r t)))) (@pair N (prod N (prod N (prod N (prod N (prod N (prod N N)))))) (NUMERAL (BIT0 (BIT0 (BIT0 (BIT0 (BIT1 (BIT0 (BIT1 0)))))))) (@pair N (prod N (prod N (prod N (prod N (prod N N))))) (NUMERAL (BIT1 (BIT0 (BIT0 (BIT0 (BIT0 (BIT0 (BIT1 0)))))))) (@pair N (prod N (prod N (prod N (prod N N)))) (NUMERAL (BIT1 (BIT0 (BIT0 (BIT1 (BIT0 (BIT0 (BIT1 0)))))))) (@pair N (prod N (prod N (prod N N))) (NUMERAL (BIT0 (BIT1 (BIT0 (BIT0 (BIT1 (BIT0 (BIT1 0)))))))) (@pair N (prod N (prod N N)) (NUMERAL (BIT1 (BIT1 (BIT1 (BIT0 (BIT1 (BIT0 (BIT1 0)))))))) (@pair N (prod N N) (NUMERAL (BIT1 (BIT0 (BIT0 (BIT1 (BIT0 (BIT0 (BIT1 0)))))))) (@pair N N (NUMERAL (BIT1 (BIT1 (BIT0 (BIT0 (BIT1 (BIT0 (BIT1 0)))))))) (NUMERAL (BIT1 (BIT0 (BIT1 (BIT0 (BIT0 (BIT0 (BIT1 0)))))))))))))))).
 Proof. 
-rewrite (hol_list_recursive_align2 (fun _ => True) (fun (P : A -> A -> Prop) a l c => Forall (P a) l /\ c)). 
-ext P l. apply prop_ext;intro. induction H;try split;auto. induction l. apply FOP_nil.  
-destruct H. apply FOP_cons. auto. now apply IHl.
+rewrite (hol_list_recursive_align2 (fun _ => True) 
+(fun (P : A -> A -> Prop) a l c => Forall (P a) l /\ c)). 
+ext P l. apply prop_ext;intro H. induction H;try split;auto. induction l. 
+apply FOP_nil. destruct H. apply FOP_cons. auto. now apply IHl.
 Qed.
 
 (* Coercion from bool to Prop, used in the mapping of char to ascii below. *)
@@ -2382,7 +2478,8 @@ Qed.
 
 Lemma MEM_def {_25376 : Type'} : (@In _25376) = (@ε ((prod N (prod N N)) -> _25376 -> (list _25376) -> Prop) (fun MEM' : (prod N (prod N N)) -> _25376 -> (list _25376) -> Prop => forall _17995 : prod N (prod N N), (forall x : _25376, (MEM' _17995 x (@nil _25376)) = False) /\ (forall h : _25376, forall x : _25376, forall t : list _25376, (MEM' _17995 x (@cons _25376 h t)) = ((x = h) \/ (MEM' _17995 x t)))) (@pair N (prod N N) (NUMERAL (BIT1 (BIT0 (BIT1 (BIT1 (BIT0 (BIT0 (BIT1 0)))))))) (@pair N N (NUMERAL (BIT1 (BIT0 (BIT1 (BIT0 (BIT0 (BIT0 (BIT1 0)))))))) (NUMERAL (BIT1 (BIT0 (BIT1 (BIT1 (BIT0 (BIT0 (BIT1 0))))))))))).
 Proof.
-rewrite (hol_list_recursive_align2 (A:=_25376) (fun _ => False) (fun a' a l c => a'=a \/ c)). 
+rewrite (hol_list_recursive_align2 (A:=_25376) (fun _ => False) 
+(fun a' a l c => a'=a \/ c)). 
 ext a l. induction l. auto. rewrite <- IHl. now rewrite (eq_sym_r a a0).
 Qed.
 
@@ -2391,23 +2488,30 @@ Fixpoint repeatpos {A : Type} (a : A) (n : positive) : list A := match n with
 |xO n => let l := repeatpos a n in l++l 
 |xI n => let l := repeatpos a n in a::l++l end. 
 
-Definition repeatN {A : Type} (a : A) (n : N) : list A := match n with |0 => nil |Npos n => repeatpos a n end. 
+Definition repeatN {A : Type} (a : A) (n : N) : list A := match n with 
+|0 => nil 
+|Npos n => repeatpos a n end. 
 
-Lemma repeatN_double {A : Type} (a : A) (n : N) : repeatN a (N.double(n)) = repeatN a n ++ (repeatN a n).
+Lemma repeatN_double {A : Type} (a : A) (n : N) : 
+repeatN a (N.double(n)) = repeatN a n ++ (repeatN a n).
 Proof.
 induction n;auto.
 Qed. 
 
-Lemma repeatN_succ_double {A : Type} (a : A) (n : N) : repeatN a (N.succ_double(n)) = a::repeatN a n ++ (repeatN a n).
+Lemma repeatN_succ_double {A : Type} (a : A) (n : N) : 
+repeatN a (N.succ_double(n)) = a::repeatN a n ++ (repeatN a n).
 Proof.
 induction n;auto.
 Qed. 
 
-Lemma repeat_N_nat {A : Type} : forall a : A, forall n : N, repeatN a n = repeat a (N.to_nat n).
+Lemma repeat_N_nat {A : Type} : forall a : A, forall n : N, 
+repeatN a n = repeat a (N.to_nat n).
 Proof.
-intros. apply (N.binary_ind (fun n => repeatN a n = repeat a (N.to_nat n)));intros. auto.
-  { rewrite repeatN_double. rewrite Nnat.N2Nat.inj_double. simpl. rewrite Nat.add_0_r. rewrite repeat_app. now rewrite H. }
-  { rewrite repeatN_succ_double. rewrite Nnat.N2Nat.inj_succ_double. simpl. rewrite Nat.add_0_r. rewrite repeat_app. now rewrite H. }
+intros a. apply N.binary_ind;try intros n IHn. auto.
+  - rewrite repeatN_double. rewrite Nnat.N2Nat.inj_double. simpl. 
+  rewrite Nat.add_0_r. rewrite repeat_app. now rewrite IHn.
+  - rewrite repeatN_succ_double. rewrite Nnat.N2Nat.inj_succ_double. simpl. 
+  rewrite Nat.add_0_r. rewrite repeat_app. now rewrite IHn.
 Qed.
 
 Lemma REPLICATE_def0 {A : Type'} : (fun n a => repeat a (N.to_nat n)) = (@ε ((prod N (prod N (prod N (prod N (prod N (prod N (prod N (prod N N)))))))) -> N -> A -> list A) (fun REPLICATE' : (prod N (prod N (prod N (prod N (prod N (prod N (prod N (prod N N)))))))) -> N -> A -> list A => forall _18125 : prod N (prod N (prod N (prod N (prod N (prod N (prod N (prod N N))))))), (forall x : A, (REPLICATE' _18125 (N0) x) = (@nil A)) /\ (forall n : N, forall x : A, (REPLICATE' _18125 (N.succ n) x) = (@cons A x (REPLICATE' _18125 n x)))) (@pair N (prod N (prod N (prod N (prod N (prod N (prod N (prod N N))))))) ((BIT0 (BIT1 (BIT0 (BIT0 (BIT1 (BIT0 (BIT1 N0)))))))) (@pair N (prod N (prod N (prod N (prod N (prod N (prod N N)))))) ((BIT1 (BIT0 (BIT1 (BIT0 (BIT0 (BIT0 (BIT1 N0)))))))) (@pair N (prod N (prod N (prod N (prod N (prod N N))))) ((BIT0 (BIT0 (BIT0 (BIT0 (BIT1 (BIT0 (BIT1 N0)))))))) (@pair N (prod N (prod N (prod N (prod N N)))) ((BIT0 (BIT0 (BIT1 (BIT1 (BIT0 (BIT0 (BIT1 N0)))))))) (@pair N (prod N (prod N (prod N N))) ((BIT1 (BIT0 (BIT0 (BIT1 (BIT0 (BIT0 (BIT1 N0)))))))) (@pair N (prod N (prod N N)) ((BIT1 (BIT1 (BIT0 (BIT0 (BIT0 (BIT0 (BIT1 N0)))))))) (@pair N (prod N N) ((BIT1 (BIT0 (BIT0 (BIT0 (BIT0 (BIT0 (BIT1 N0)))))))) (@pair N N ((BIT0 (BIT0 (BIT1 (BIT0 (BIT1 (BIT0 (BIT1 N0)))))))) ((BIT1 (BIT0 (BIT1 (BIT0 (BIT0 (BIT0 (BIT1 N0))))))))))))))))).
@@ -2421,11 +2525,13 @@ Proof.
 rewrite <- REPLICATE_def0. ext n a. now rewrite repeat_N_nat.
 Qed.
 
-Definition fold_right_with_perm_args {A B : Type'} (f: A -> B -> B) (l: list A) (b: B) : B := @fold_right B A f b l.
+Definition fold_right_with_perm_args {A B : Type'} 
+(f: A -> B -> B) (l: list A) (b: B) : B := @fold_right B A f b l.
 
 Lemma ITLIST_def {A B : Type'} : (@fold_right_with_perm_args A B) = (@ε ((prod N (prod N (prod N (prod N (prod N N))))) -> (A -> B -> B) -> (list A) -> B -> B) (fun ITLIST' : (prod N (prod N (prod N (prod N (prod N N))))) -> (A -> B -> B) -> (list A) -> B -> B => forall _18151 : prod N (prod N (prod N (prod N (prod N N)))), (forall f : A -> B -> B, forall b : B, (ITLIST' _18151 f (@nil A) b) = b) /\ (forall h : A, forall f : A -> B -> B, forall t : list A, forall b : B, (ITLIST' _18151 f (@cons A h t) b) = (f h (ITLIST' _18151 f t b)))) (@pair N (prod N (prod N (prod N (prod N N)))) (NUMERAL (BIT1 (BIT0 (BIT0 (BIT1 (BIT0 (BIT0 (BIT1 0)))))))) (@pair N (prod N (prod N (prod N N))) (NUMERAL (BIT0 (BIT0 (BIT1 (BIT0 (BIT1 (BIT0 (BIT1 0)))))))) (@pair N (prod N (prod N N)) (NUMERAL (BIT0 (BIT0 (BIT1 (BIT1 (BIT0 (BIT0 (BIT1 0)))))))) (@pair N (prod N N) (NUMERAL (BIT1 (BIT0 (BIT0 (BIT1 (BIT0 (BIT0 (BIT1 0)))))))) (@pair N N (NUMERAL (BIT1 (BIT1 (BIT0 (BIT0 (BIT1 (BIT0 (BIT1 0)))))))) (NUMERAL (BIT0 (BIT0 (BIT1 (BIT0 (BIT1 (BIT0 (BIT1 0)))))))))))))).
 Proof.
-rewrite (hol_list_recursive_align3 (fun _ : A -> B -> B => fun c => c) (fun f a _ _ d => f a d)).
+rewrite (hol_list_recursive_align3 (fun _ : A -> B -> B => fun c => c) 
+(fun f a _ _ d => f a d)).
 ext f l. induction l. auto. ext b. simpl. now rewrite IHl.
 Qed.
 
@@ -2456,29 +2562,34 @@ Qed.
 Lemma NULL_def {A : Type'} : (fun l => l = nil) = (@ε ((prod N (prod N (prod N N))) -> (list A) -> Prop) (fun NULL' : (prod N (prod N (prod N N))) -> (list A) -> Prop => forall _18129 : prod N (prod N (prod N N)), ((NULL' _18129 (@nil A)) = True) /\ (forall h : A, forall t : list A, (NULL' _18129 (@cons A h t)) = False)) (@pair N (prod N (prod N N)) ((BIT0 (BIT1 (BIT1 (BIT1 (BIT0 (BIT0 (BIT1 N0)))))))) (@pair N (prod N N) ((BIT1 (BIT0 (BIT1 (BIT0 (BIT1 (BIT0 (BIT1 N0)))))))) (@pair N N ((BIT0 (BIT0 (BIT1 (BIT1 (BIT0 (BIT0 (BIT1 N0)))))))) ((BIT0 (BIT0 (BIT1 (BIT1 (BIT0 (BIT0 (BIT1 N0)))))))))))).
 Proof.
 rewrite (hol_list_recursive_align True (fun _ _ _ => False)). ext l. induction l.
-  { apply prop_ext;auto. }
-  { apply prop_ext. apply not_eq_sym. apply nil_cons. easy. }
+  - apply prop_ext;auto.
+  - apply prop_ext. apply not_eq_sym. apply nil_cons. easy.
 Qed.
 
 Lemma EX_def {A : Type'} : @Exists A = (@ε ((prod N N) -> (A -> Prop) -> (list A) -> Prop) (fun EX' : (prod N N) -> (A -> Prop) -> (list A) -> Prop => forall _18143 : prod N N, (forall P : A -> Prop, (EX' _18143 P (@nil A)) = False) /\ (forall h : A, forall P : A -> Prop, forall t : list A, (EX' _18143 P (@cons A h t)) = ((P h) \/ (EX' _18143 P t)))) (@pair N N ((BIT1 (BIT0 (BIT1 (BIT0 (BIT0 (BIT0 (BIT1 N0)))))))) ((BIT0 (BIT0 (BIT0 (BIT1 (BIT1 (BIT0 (BIT1 N0)))))))))).
 Proof.
-rewrite (hol_list_recursive_align2 (fun _ => False) (fun P : A -> Prop => fun h _ c => (P h \/ c))). ext P l. apply prop_ext;induction l;intros. 
-  { inversion H. }
-  { inversion H;auto. right. now apply IHl. }  
-  { destruct H. } 
-  { destruct H. now apply Exists_cons_hd. apply IHl in H. now apply Exists_cons_tl. }
+rewrite (hol_list_recursive_align2 (fun _ => False) (fun P : A -> Prop => 
+fun h _ c => (P h \/ c))). ext P l. apply prop_ext;induction l;intro H. 
+  - inversion H.
+  - inversion H;auto. right. now apply IHl.
+  - destruct H.
+  - destruct H. now apply Exists_cons_hd. apply IHl in H. 
+  now apply Exists_cons_tl.
 Qed.
 
 Lemma ALL2_def {A B : Type'} : @Forall2 A B = (@ε ((prod N (prod N (prod N N))) -> (A -> B -> Prop) -> (list A) -> (list B) -> Prop) (fun ALL2' : (prod N (prod N (prod N N))) -> (A -> B -> Prop) -> (list A) -> (list B) -> Prop => forall _18166 : prod N (prod N (prod N N)), (forall P : A -> B -> Prop, forall l2 : list B, (ALL2' _18166 P (@nil A) l2) = (l2 = (@nil B))) /\ (forall h1' : A, forall P : A -> B -> Prop, forall t1 : list A, forall l2 : list B, (ALL2' _18166 P (@cons A h1' t1) l2) = (@COND Prop (l2 = (@nil B)) False ((P h1' (@hd B l2)) /\ (ALL2' _18166 P t1 (@tl B l2)))))) (@pair N (prod N (prod N N)) ((BIT1 (BIT0 (BIT0 (BIT0 (BIT0 (BIT0 (BIT1 N0)))))))) (@pair N (prod N N) ((BIT0 (BIT0 (BIT1 (BIT1 (BIT0 (BIT0 (BIT1 N0)))))))) (@pair N N ((BIT0 (BIT0 (BIT1 (BIT1 (BIT0 (BIT0 (BIT1 N0)))))))) ((BIT0 (BIT1 (BIT0 (BIT0 (BIT1 (BIT1 N0))))))))))).
 Proof. 
-rewrite (hol_list_recursive_align3 (fun _ l => l=nil) (fun P : A -> B -> Prop => fun a l l' d => COND (l' = nil) False (P a (mappings.hd l') /\ d))). 
-ext P l. induction l;ext l';apply prop_ext;intro.
-  { now inversion H. }
-  { induction l'. auto. destruct (nil_cons (eq_sym H)). } 
-  { rewrite (COND_list (l:=l')). inversion H. simpl. split. auto. now rewrite IHl in H4. }
-  { simpl in H. rewrite (COND_list) in H. induction l'. 
-    { destruct H. }
-    { destruct H. apply Forall2_cons. auto. now rewrite IHl. }}
+rewrite (hol_list_recursive_align3 (fun _ l => l=nil) 
+(fun P : A -> B -> Prop => fun a l l' d => COND (l' = nil) False 
+(P a (mappings.hd l') /\ d))). 
+ext P l. induction l;ext l';apply prop_ext;intro H.
+  - now inversion H.
+  - induction l'. auto. destruct (nil_cons (eq_sym H)).
+  - rewrite (COND_list (l:=l')). inversion H. simpl. split. auto. 
+  now rewrite IHl in H4.
+  - simpl in H. rewrite (COND_list) in H. induction l'. 
+    + destruct H.
+    + destruct H. apply Forall2_cons. auto. now rewrite IHl.
 Qed.
 
 Definition LAST {A : Type'} := (@ε ((prod N (prod N (prod N N))) -> (list A) -> A) (fun LAST' : (prod N (prod N (prod N N))) -> (list A) -> A => forall _18117 : prod N (prod N (prod N N)), forall h : A, forall t : list A, (LAST' _18117 (@cons A h t)) = (@COND A (t = (@nil A)) h (LAST' _18117 t))) (@pair N (prod N (prod N N)) ((BIT0 (BIT0 (BIT1 (BIT1 (BIT0 (BIT0 (BIT1 N0)))))))) (@pair N (prod N N) ((BIT1 (BIT0 (BIT0 (BIT0 (BIT0 (BIT0 (BIT1 N0)))))))) (@pair N N ((BIT1 (BIT1 (BIT0 (BIT0 (BIT1 (BIT0 (BIT1 N0)))))))) ((BIT0 (BIT0 (BIT1 (BIT0 (BIT1 (BIT0 (BIT1 N0)))))))))))).
@@ -2486,59 +2597,83 @@ Definition LAST {A : Type'} := (@ε ((prod N (prod N (prod N N))) -> (list A) ->
 Lemma LAST_def {A : Type'} : (fun l => last l (LAST nil)) = (@ε ((prod N (prod N (prod N N))) -> (list A) -> A) (fun LAST' : (prod N (prod N (prod N N))) -> (list A) -> A => forall _18117 : prod N (prod N (prod N N)), forall h : A, forall t : list A, (LAST' _18117 (@cons A h t)) = (@COND A (t = (@nil A)) h (LAST' _18117 t))) (@pair N (prod N (prod N N)) ((BIT0 (BIT0 (BIT1 (BIT1 (BIT0 (BIT0 (BIT1 N0)))))))) (@pair N (prod N N) ((BIT1 (BIT0 (BIT0 (BIT0 (BIT0 (BIT0 (BIT1 N0)))))))) (@pair N N ((BIT1 (BIT1 (BIT0 (BIT0 (BIT1 (BIT0 (BIT1 N0)))))))) ((BIT0 (BIT0 (BIT1 (BIT0 (BIT1 (BIT0 (BIT1 N0)))))))))))).
 Proof.
 rewrite (hol_list_partial_align (fun a l b => COND (l=nil) a b)). 
-ext l. induction l. auto. simpl. rewrite IHl. rewrite COND_list. now rewrite <- (hol_list_partial_align (fun a l b => COND (l=nil) a b)).
+ext l. induction l. auto. simpl. rewrite IHl. rewrite COND_list. 
+now rewrite <- (hol_list_partial_align (fun a l b => COND (l=nil) a b)).
 Qed.
 
-Fixpoint map2 {A B C : Type'} (f : A -> B -> C) (l : list A) (l' : list B) : list C := match l with |nil => nil |a::l => f a (hd l') :: map2 f l (tl l') end.
+Fixpoint map2 {A B C : Type'} (f : A -> B -> C) (l : list A) (l' : list B) 
+: list C := match l with |nil => nil 
+|a::l => f a (hd l') :: map2 f l (tl l') end.
 
 Lemma MAP2_def {A B C : Type'} : map2 = (@ε ((prod N (prod N (prod N N))) -> (A -> B -> C) -> (list A) -> (list B) -> list C) (fun MAP2' : (prod N (prod N (prod N N))) -> (A -> B -> C) -> (list A) -> (list B) -> list C => forall _18174 : prod N (prod N (prod N N)), (forall f : A -> B -> C, forall l : list B, (MAP2' _18174 f (@nil A) l) = (@nil C)) /\ (forall h1' : A, forall f : A -> B -> C, forall t1 : list A, forall l : list B, (MAP2' _18174 f (@cons A h1' t1) l) = (@cons C (f h1' (@hd B l)) (MAP2' _18174 f t1 (@tl B l))))) (@pair N (prod N (prod N N)) ((BIT1 (BIT0 (BIT1 (BIT1 (BIT0 (BIT0 (BIT1 N0)))))))) (@pair N (prod N N) ((BIT1 (BIT0 (BIT0 (BIT0 (BIT0 (BIT0 (BIT1 N0)))))))) (@pair N N ((BIT0 (BIT0 (BIT0 (BIT0 (BIT1 (BIT0 (BIT1 N0)))))))) ((BIT0 (BIT1 (BIT0 (BIT0 (BIT1 (BIT1 N0))))))))))).
 Proof.
-simpl. assert (exists g : N * (N * (N * N)) -> (A -> B -> C) -> list A -> list B -> list C, forall uv : N * (N * (N * N)), (forall (f : A -> B -> C) (l : list B), g uv f nil l = nil) /\ (forall (h1' : A) (f : A -> B -> C) (t1 : list A) (l : list B), g uv f (h1' :: t1) l = f h1' (hd l) :: g uv f t1 (tl l))).
-  { now exists (fun _ => map2). }
-  { apply ε_spec in H. simpl in H. destruct (H (BIT1 38, (BIT1 32, (80, 50)))). ext f l. induction l;ext l'. 
-    { now rewrite H0. } 
-    { rewrite H1. simpl. now rewrite IHl. }}
+simpl. assert (He : exists g : N * (N * (N * N)) -> 
+(A -> B -> C) -> list A -> list B -> list C, forall uv : N * (N * (N * N)), 
+(forall (f : A -> B -> C) (l : list B), g uv f nil l = nil) /\ 
+(forall (h1' : A) (f : A -> B -> C) (t1 : list A) (l : list B), 
+g uv f (h1' :: t1) l = f h1' (hd l) :: g uv f t1 (tl l))).
+  - now exists (fun _ => map2). 
+  - apply ε_spec in He. simpl in He. 
+  destruct (He (BIT1 38, (BIT1 32, (80, 50)))) as (Hn,Hc). ext f l. 
+  induction l;ext l'.
+    + now rewrite Hn.
+    + rewrite Hc. simpl. now rewrite IHl.
 Qed.
 
 (* Cannot align with nth : different possible default values *)
 Lemma EL_def {A : Type'} : (let fix g n l := match n with |O => hd l |S n => g n (tl l) end in fun n => g (N.to_nat n)) = (@ε ((prod N N) -> N -> (list A) -> A) (fun EL' : (prod N N) -> N -> (list A) -> A => forall _18178 : prod N N, (forall l : list A, (EL' _18178 (N0) l) = (@hd A l)) /\ (forall n : N, forall l : list A, (EL' _18178 (N.succ n) l) = (EL' _18178 n (@tl A l)))) (@pair N N ((BIT1 (BIT0 (BIT1 (BIT0 (BIT0 (BIT0 (BIT1 N0)))))))) ((BIT0 (BIT0 (BIT1 (BIT1 (BIT0 (BIT0 (BIT1 N0)))))))))).
 Proof.
-now rewrite (hol_N_recursive_align2 (A:=list A) (fun l => hd l) (fun n l b => b)). 
+now rewrite (hol_N_recursive_align2 (A:=list A) (fun l => hd l) (fun n l b => b)).
 Qed.
 
 Definition ASSOC {A B : Type'} := (@ε ((prod N (prod N (prod N (prod N N)))) -> A -> (list (prod A B)) -> B) (fun ASSOC' : (prod N (prod N (prod N (prod N N)))) -> A -> (list (prod A B)) -> B => forall _18192 : prod N (prod N (prod N (prod N N))), forall h : prod A B, forall a : A, forall t : list (prod A B), (ASSOC' _18192 a (@cons (prod A B) h t)) = (@COND B ((@fst A B h) = a) (@snd A B h) (ASSOC' _18192 a t))) (@pair N (prod N (prod N (prod N N))) ((BIT1 (BIT0 (BIT0 (BIT0 (BIT0 (BIT0 (BIT1 N0)))))))) (@pair N (prod N (prod N N)) ((BIT1 (BIT1 (BIT0 (BIT0 (BIT1 (BIT0 (BIT1 N0)))))))) (@pair N (prod N N) ((BIT1 (BIT1 (BIT0 (BIT0 (BIT1 (BIT0 (BIT1 N0)))))))) (@pair N N ((BIT1 (BIT1 (BIT1 (BIT1 (BIT0 (BIT0 (BIT1 N0)))))))) ((BIT1 (BIT1 (BIT0 (BIT0 (BIT0 (BIT0 (BIT1 N0))))))))))))).
 
 Lemma ASSOC_def {A B : Type'} : (fix f a l := match l with |nil => ASSOC a nil |c::l => COND (fst c = a) (snd c) (f a l) end) = (@ε ((prod N (prod N (prod N (prod N N)))) -> A -> (list (prod A B)) -> B) (fun ASSOC' : (prod N (prod N (prod N (prod N N)))) -> A -> (list (prod A B)) -> B => forall _18192 : prod N (prod N (prod N (prod N N))), forall h : prod A B, forall a : A, forall t : list (prod A B), (ASSOC' _18192 a (@cons (prod A B) h t)) = (@COND B ((@fst A B h) = a) (@snd A B h) (ASSOC' _18192 a t))) (@pair N (prod N (prod N (prod N N))) ((BIT1 (BIT0 (BIT0 (BIT0 (BIT0 (BIT0 (BIT1 N0)))))))) (@pair N (prod N (prod N N)) ((BIT1 (BIT1 (BIT0 (BIT0 (BIT1 (BIT0 (BIT1 N0)))))))) (@pair N (prod N N) ((BIT1 (BIT1 (BIT0 (BIT0 (BIT1 (BIT0 (BIT1 N0)))))))) (@pair N N ((BIT1 (BIT1 (BIT1 (BIT1 (BIT0 (BIT0 (BIT1 N0)))))))) ((BIT1 (BIT1 (BIT0 (BIT0 (BIT0 (BIT0 (BIT1 N0))))))))))))).
 Proof.
-now rewrite (hol_list_partial_align2 (A := prod A B) (fun b a l c => COND (fst a = b) (snd a) c)).
+now rewrite (hol_list_partial_align2 (A := prod A B) (fun b a l c => 
+COND (fst a = b) (snd a) c)).
 Qed.
 
 Lemma ZIP_def {A B : Type'} : (fix f (l : list A) (l' : list B) := match l with |nil => nil |a::l => (a , hd l') :: f l (tl l') end) = (@ε ((prod N (prod N N)) -> (list A) -> (list B) -> list (prod A B)) (fun ZIP' : (prod N (prod N N)) -> (list A) -> (list B) -> list (prod A B) => forall _18205 : prod N (prod N N), (forall l2 : list B, (ZIP' _18205 (@nil A) l2) = (@nil (prod A B))) /\ (forall h1' : A, forall t1 : list A, forall l2 : list B, (ZIP' _18205 (@cons A h1' t1) l2) = (@cons (prod A B) (@pair A B h1' (@hd B l2)) (ZIP' _18205 t1 (@tl B l2))))) (@pair N (prod N N) ((BIT0 (BIT1 (BIT0 (BIT1 (BIT1 (BIT0 (BIT1 N0)))))))) (@pair N N ((BIT1 (BIT0 (BIT0 (BIT1 (BIT0 (BIT0 (BIT1 N0)))))))) ((BIT0 (BIT0 (BIT0 (BIT0 (BIT1 (BIT0 (BIT1 N0))))))))))).
 Proof.
-apply (hol_uv_elim (fun f => (forall l2 : list B, f nil l2 = nil) /\ (forall (h1' : A) (t1 : list A) (l2 : list B), f (h1' :: t1) l2 = (h1', hd l2) :: f t1 (tl l2)))). intro. split;intros.
-  { destruct H. induction x;ext l'. auto. rewrite H0. now rewrite IHx. }
-  { split. now rewrite H. intros. now repeat rewrite H. } 
+apply (hol_uv_elim (fun f => (forall l2 : list B, f nil l2 = nil) /\ 
+(forall (h1' : A) (t1 : list A) (l2 : list B), f (h1' :: t1) l2 = 
+(h1', hd l2) :: f t1 (tl l2)))). intro g. split.
+  - intros (Hn,Hc) l. induction l;ext l'. auto. rewrite Hc. now rewrite IHl.
+  - intro H. split. now rewrite H. intros. now repeat rewrite H.
 Qed.
 
 Lemma ALLPAIRS_def {A B : Type'} : (fix g f l l' := match l with |nil => True |a::l => Forall (f a) l' /\ g f l l' end) = (@ε ((prod N (prod N (prod N (prod N (prod N (prod N (prod N N))))))) -> (A -> B -> Prop) -> (list A) -> (list B) -> Prop) (fun ALLPAIRS' : (prod N (prod N (prod N (prod N (prod N (prod N (prod N N))))))) -> (A -> B -> Prop) -> (list A) -> (list B) -> Prop => forall _18213 : prod N (prod N (prod N (prod N (prod N (prod N (prod N N)))))), (forall f : A -> B -> Prop, forall l : list B, (ALLPAIRS' _18213 f (@nil A) l) = True) /\ (forall h : A, forall f : A -> B -> Prop, forall t : list A, forall l : list B, (ALLPAIRS' _18213 f (@cons A h t) l) = ((@List.Forall B (f h) l) /\ (ALLPAIRS' _18213 f t l)))) (@pair N (prod N (prod N (prod N (prod N (prod N (prod N N)))))) ((BIT1 (BIT0 (BIT0 (BIT0 (BIT0 (BIT0 (BIT1 N0)))))))) (@pair N (prod N (prod N (prod N (prod N (prod N N))))) ((BIT0 (BIT0 (BIT1 (BIT1 (BIT0 (BIT0 (BIT1 N0)))))))) (@pair N (prod N (prod N (prod N (prod N N)))) ((BIT0 (BIT0 (BIT1 (BIT1 (BIT0 (BIT0 (BIT1 N0)))))))) (@pair N (prod N (prod N (prod N N))) ((BIT0 (BIT0 (BIT0 (BIT0 (BIT1 (BIT0 (BIT1 N0)))))))) (@pair N (prod N (prod N N)) ((BIT1 (BIT0 (BIT0 (BIT0 (BIT0 (BIT0 (BIT1 N0)))))))) (@pair N (prod N N) ((BIT1 (BIT0 (BIT0 (BIT1 (BIT0 (BIT0 (BIT1 N0)))))))) (@pair N N ((BIT0 (BIT1 (BIT0 (BIT0 (BIT1 (BIT0 (BIT1 N0)))))))) ((BIT1 (BIT1 (BIT0 (BIT0 (BIT1 (BIT0 (BIT1 N0)))))))))))))))).
 Proof.
-now rewrite (hol_list_recursive_align3 (B := A -> B -> Prop) (fun _ _ => True) (fun f a l l' d => Forall (f a) l' /\ d)).
+now rewrite (hol_list_recursive_align3 (B := A -> B -> Prop) (fun _ _ => True) 
+(fun f a l l' d => Forall (f a) l' /\ d)).
 Qed.
 
 Lemma list_of_seq_def {A : Type'} : (let fix f s n := match n with |O => nil |S n => f s n ++ (s (N.of_nat n) :: nil) end in fun s n => f s (N.to_nat n)) = (@ε ((prod N (prod N (prod N (prod N (prod N (prod N (prod N (prod N (prod N (prod N N)))))))))) -> (N -> A) -> N -> list A) (fun list_of_seq' : (prod N (prod N (prod N (prod N (prod N (prod N (prod N (prod N (prod N (prod N N)))))))))) -> (N -> A) -> N -> list A => forall _18227 : prod N (prod N (prod N (prod N (prod N (prod N (prod N (prod N (prod N (prod N N))))))))), (forall s : N -> A, (list_of_seq' _18227 s (N0)) = (@nil A)) /\ (forall s : N -> A, forall n : N, (list_of_seq' _18227 s (N.succ n)) = (@app A (list_of_seq' _18227 s n) (@cons A (s n) (@nil A))))) (@pair N (prod N (prod N (prod N (prod N (prod N (prod N (prod N (prod N (prod N N))))))))) ((BIT0 (BIT0 (BIT1 (BIT1 (BIT0 (BIT1 (BIT1 N0)))))))) (@pair N (prod N (prod N (prod N (prod N (prod N (prod N (prod N (prod N N)))))))) ((BIT1 (BIT0 (BIT0 (BIT1 (BIT0 (BIT1 (BIT1 N0)))))))) (@pair N (prod N (prod N (prod N (prod N (prod N (prod N (prod N N))))))) ((BIT1 (BIT1 (BIT0 (BIT0 (BIT1 (BIT1 (BIT1 N0)))))))) (@pair N (prod N (prod N (prod N (prod N (prod N (prod N N)))))) ((BIT0 (BIT0 (BIT1 (BIT0 (BIT1 (BIT1 (BIT1 N0)))))))) (@pair N (prod N (prod N (prod N (prod N (prod N N))))) ((BIT1 (BIT1 (BIT1 (BIT1 (BIT1 (BIT0 (BIT1 N0)))))))) (@pair N (prod N (prod N (prod N (prod N N)))) ((BIT1 (BIT1 (BIT1 (BIT1 (BIT0 (BIT1 (BIT1 N0)))))))) (@pair N (prod N (prod N (prod N N))) ((BIT0 (BIT1 (BIT1 (BIT0 (BIT0 (BIT1 (BIT1 N0)))))))) (@pair N (prod N (prod N N)) ((BIT1 (BIT1 (BIT1 (BIT1 (BIT1 (BIT0 (BIT1 N0)))))))) (@pair N (prod N N) ((BIT1 (BIT1 (BIT0 (BIT0 (BIT1 (BIT1 (BIT1 N0)))))))) (@pair N N ((BIT1 (BIT0 (BIT1 (BIT0 (BIT0 (BIT1 (BIT1 N0)))))))) ((BIT1 (BIT0 (BIT0 (BIT0 (BIT1 (BIT1 (BIT1 N0))))))))))))))))))).
 Proof. 
-now rewrite (hol_N_recursive_align2_varright (A:= N -> A) (fun _ => nil) (fun s n b => b ++ s n :: nil)). 
+now rewrite (hol_N_recursive_align2_varright (A:= N -> A) (fun _ => nil) 
+(fun s n b => b ++ s n :: nil)). 
 Qed.
 
-Fixpoint fold_right2 {A B C : Type'} (f : A -> B -> C -> C) (l : list A) (l' : list B) (c : C) : C := match l with |nil => c |a::l => (f a (hd l') (fold_right2 f l (tl l') c))  end.
+Fixpoint fold_right2 {A B C : Type'} (f : A -> B -> C -> C) 
+(l : list A) (l' : list B) (c : C) : C := match l with 
+|nil => c 
+|a::l => (f a (hd l') (fold_right2 f l (tl l') c))  end.
 
 Lemma ITLIST2_def {A B C : Type'} : fold_right2 = (@ε ((prod N (prod N (prod N (prod N (prod N (prod N N)))))) -> (A -> B -> C -> C) -> (list A) -> (list B) -> C -> C) (fun ITLIST2' : (prod N (prod N (prod N (prod N (prod N (prod N N)))))) -> (A -> B -> C -> C) -> (list A) -> (list B) -> C -> C => forall _18201 : prod N (prod N (prod N (prod N (prod N (prod N N))))), (forall f : A -> B -> C -> C, forall l2 : list B, forall b : C, (ITLIST2' _18201 f (@nil A) l2 b) = b) /\ (forall h1' : A, forall f : A -> B -> C -> C, forall t1 : list A, forall l2 : list B, forall b : C, (ITLIST2' _18201 f (@cons A h1' t1) l2 b) = (f h1' (@hd B l2) (ITLIST2' _18201 f t1 (@tl B l2) b)))) (@pair N (prod N (prod N (prod N (prod N (prod N N))))) ((BIT1 (BIT0 (BIT0 (BIT1 (BIT0 (BIT0 (BIT1 N0)))))))) (@pair N (prod N (prod N (prod N (prod N N)))) ((BIT0 (BIT0 (BIT1 (BIT0 (BIT1 (BIT0 (BIT1 N0)))))))) (@pair N (prod N (prod N (prod N N))) ((BIT0 (BIT0 (BIT1 (BIT1 (BIT0 (BIT0 (BIT1 N0)))))))) (@pair N (prod N (prod N N)) ((BIT1 (BIT0 (BIT0 (BIT1 (BIT0 (BIT0 (BIT1 N0)))))))) (@pair N (prod N N) ((BIT1 (BIT1 (BIT0 (BIT0 (BIT1 (BIT0 (BIT1 N0)))))))) (@pair N N ((BIT0 (BIT0 (BIT1 (BIT0 (BIT1 (BIT0 (BIT1 N0)))))))) ((BIT0 (BIT1 (BIT0 (BIT0 (BIT1 (BIT1 N0)))))))))))))).
 Proof.
-simpl. assert (exists g : N * (N * (N * (N * (N * (N * N))))) -> (A -> B -> C -> C) -> list A -> list B -> C -> C, forall uv : N * (N * (N * (N * (N * (N * N))))), (forall (f : A -> B -> C -> C) (l2 : list B) (b : C), g uv f nil l2 b = b) /\ (forall (h1' : A) (f : A -> B -> C -> C) (t1 : list A) (l2 : list B) (b : C), g uv f (h1' :: t1) l2 b = f h1' (hd l2) (g uv f t1 (tl l2) b))).
-  { now exists (fun _ => fold_right2). }
-  { apply ε_spec in H. simpl in H. destruct (H (BIT1 36, (84, (76, (BIT1 36, (BIT1 (BIT1 20), (84, 50))))))). ext f l. induction l;ext l';ext b. 
-    { now rewrite H0. } 
-    { rewrite H1. simpl. now rewrite IHl. }}
+simpl. assert (He : exists g : N * (N * (N * (N * (N * (N * N))))) -> 
+(A -> B -> C -> C) -> list A -> list B -> C -> C, 
+forall uv : N * (N * (N * (N * (N * (N * N))))), 
+(forall (f : A -> B -> C -> C) (l2 : list B) (b : C), g uv f nil l2 b = b) /\ 
+(forall (h1' : A) (f : A -> B -> C -> C) (t1 : list A) (l2 : list B) (b : C), 
+g uv f (h1' :: t1) l2 b = f h1' (hd l2) (g uv f t1 (tl l2) b))).
+  - now exists (fun _ => fold_right2).
+  - apply ε_spec in He. simpl in He. destruct (He (BIT1 36, (84, (76, 
+  (BIT1 36, (BIT1 (BIT1 20), (84, 50))))))) as (Hn,Hc). ext f l. 
+  induction l;ext l' b.
+    + now rewrite Hn.
+    + rewrite Hc. simpl. now rewrite IHl.
 Qed.
 
 (****************************************************************************)
