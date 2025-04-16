@@ -2213,7 +2213,7 @@ Let lA := list A.
   have TB := fun l' => tl l' x*)
 
 
-Context (x : B) (x2 : B -> C) (x3 : B -> C -> D).
+Context (xo : B) (xo2 : B -> C) (xo3 : B -> C -> D).
 Context (f : A -> lA -> B -> B) (f2 : B -> A -> lA -> C -> C)
 (f3 : B -> A -> lA -> C -> D -> D).
 Context {TB : B -> B} {TC : C -> C}.
@@ -2229,12 +2229,12 @@ Context {TB : B -> B} {TC : C -> C}.
   
 Lemma hol_list_recursive_align : @ε (U -> lA -> B) 
   (fun f' : U -> lA -> B => forall uv : U, 
-  (f' uv nil = x) /\ 
+  (f' uv nil = xo) /\ 
   (forall a : A, forall l : lA, (f' uv (a::l) = f a l (f' uv l)))) uv0 = 
-  fix g (l : lA) := match l with nil => x | a::l => f a l (g l) end.
+  fix g (l : lA) := match l with nil => xo | a::l => f a l (g l) end.
 Proof.
   apply eq_sym. apply (hol_uv_elim 
-  (fun f' : list A -> B => f' nil = x /\ 
+  (fun f' : list A -> B => f' nil = xo /\ 
   (forall (a : A) (l : lA), f' (a :: l) = f a l (f' l)))). split. 
   - intros (Hn,Hc) l. induction l. auto. rewrite Hc. now rewrite IHl. 
   - intro H. split. auto. intros a l. rewrite H. now rewrite H. 
@@ -2242,12 +2242,12 @@ Qed.
 
 Lemma hol_list_recursive_align_varright : @ε (U -> lA -> B) 
   (fun f' : U -> lA -> B => forall uv : U, 
-  (f' uv nil = x) /\ 
+  (f' uv nil = xo) /\ 
   (forall (l : lA) (a : A), (f' uv (a::l) = f a l (f' uv l)))) uv0 = 
-  fix g (l : lA) := match l with nil => x | a::l => f a l (g l) end.
+  fix g (l : lA) := match l with nil => xo | a::l => f a l (g l) end.
 Proof.
   apply eq_sym. apply (hol_uv_elim 
-  (fun f' : lA -> B => f' nil = x /\ 
+  (fun f' : lA -> B => f' nil = xo /\ 
   (forall (l : lA) (a : A), f' (a :: l) = f a l (f' l)))). split. 
   - intros (Hn,Hc) l. induction l. auto. rewrite Hc. now rewrite IHl. 
   - intro H. split. auto. intros l a. rewrite H. now rewrite H. 
@@ -2255,17 +2255,17 @@ Qed.
 
 Lemma hol_list_recursive_align2 : @ε (U -> B -> lA -> C) 
   (fun f' : U -> B -> lA -> C => forall uv : U, 
-  (forall b : B, f' uv b nil = x2 b) /\ 
+  (forall b : B, f' uv b nil = xo2 b) /\ 
   (forall a : A, forall b : B, forall l : lA, 
   (f' uv b (a::l) = f2 b a l (f' uv (TB b) l)))) uv0 = 
   (fix g (b : B) (l : lA) := 
   match l with
-  |nil => x2 b
+  |nil => xo2 b
   |a::l => f2 b a l (g (TB b) l) end).
 Proof.
   apply eq_sym. apply (hol_uv_elim 
   (fun f' : B -> lA -> C =>
-  (forall b : B, f' b nil = x2 b) /\ 
+  (forall b : B, f' b nil = xo2 b) /\ 
   (forall (a : A) (b : B) (l : lA),
   f' b (a :: l) = f2 b a l (f' (TB b) l)))). split. 
   - intros (Hn,Hc) b. ext l. revert b. induction l. auto. intro. rewrite Hc.
@@ -2275,17 +2275,17 @@ Qed.
 
 Lemma hol_list_recursive_align2_varmid : @ε (U -> B -> lA -> C) 
   (fun f' : U -> B -> lA -> C => forall uv : U, 
-  (forall b : B, f' uv b nil = x2 b) /\ 
+  (forall b : B, f' uv b nil = xo2 b) /\ 
   (forall (b : B) (a : A) (l : lA), 
   (f' uv b (a::l) = f2 b a l (f' uv (TB b) l)))) uv0 =
   (fix g (b : B) (l : lA) := 
   match l with 
-  |nil => x2 b 
+  |nil => xo2 b 
   |a::l => f2 b a l (g (TB b) l) end).
 Proof.
   apply eq_sym. apply (hol_uv_elim 
   (fun f' : B -> lA -> C => 
-  (forall b : B, f' b nil = x2 b) /\ 
+  (forall b : B, f' b nil = xo2 b) /\ 
   (forall (b : B) (a : A) (l : lA), 
   f' b (a :: l) = f2 b a l (f' (TB b) l)))). split. 
   - intros (Hn,Hc) b. ext l. revert b. induction l. auto. intro. 
@@ -2295,17 +2295,17 @@ Qed.
 
 Lemma hol_list_recursive_align3 : @ε (U -> B -> lA -> C -> D) 
   (fun f' : U -> B -> lA -> C -> D => forall uv : U, 
-  (forall b : B, forall c:C, f' uv b nil c = x3 b c) /\ 
+  (forall b : B, forall c:C, f' uv b nil c = xo3 b c) /\ 
   (forall a : A, forall b : B, forall l : lA, forall c : C, 
   (f' uv b (a::l) c = f3 b a l c (f' uv (TB b) l (TC c))))) uv0 = 
   (fix g (b : B) (l : lA) (c : C) := 
   match l with 
-  |nil => x3 b c 
+  |nil => xo3 b c 
   |a::l => f3 b a l c (g (TB b) l (TC c)) end).
 Proof.
   apply eq_sym. apply (hol_uv_elim 
   (fun f' : B -> lA -> C -> D => 
-  (forall (b : B) (c : C), f' b nil c = x3 b c) /\ 
+  (forall (b : B) (c : C), f' b nil c = xo3 b c) /\ 
   (forall (a : A) (b : B) (l : lA) (c : C), 
   f' b (a :: l) c = f3 b a l c (f' (TB b) l (TC c))))). split.
   - intros (Hn,Hc) b. ext l. revert b. induction l;intro b;ext c. auto. 
@@ -2332,12 +2332,12 @@ Proof.
 Qed.
 
 Lemma hol_list_partial_align_varright : let g:= @ε (U -> lA -> B) 
-(fun f' : U -> lA -> B => forall uv : U, 
-(forall (l : lA) (a:A), (f' uv (a::l) = f a l (f' uv l)))) uv0 in 
-g = (fix h (l : lA) := 
-match l with 
-|nil => g nil 
-|a::l => f a l (h l) end).
+  (fun f' : U -> lA -> B => forall uv : U, 
+  (forall (l : lA) (a:A), (f' uv (a::l) = f a l (f' uv l)))) uv0 in 
+  g = (fix h (l : lA) := 
+  match l with 
+  |nil => g nil 
+  |a::l => f a l (h l) end).
 Proof.
   assert (He : exists g' : U -> lA -> B, forall uv' : U, 
   (forall (l : lA) (a:A), (g' uv' (a::l) = f a l (g' uv' l)))). 
@@ -2369,54 +2369,70 @@ Proof.
     auto. intro b. rewrite He. now rewrite <- IHl.
 Qed.
 
+Search "Peano" "ind".
+
 (* Same kind of theorem but for peano recursion on N, 
   using the bijection between nat and N. *)
-Lemma hol_N_recursive_align2 (fN : N -> B -> C -> C) : @ε (U -> N -> B -> C) 
-  (fun f' : U -> N -> A -> B => forall uv : U, 
-  (forall a : A, f' uv N0 a = x a) /\ 
-(forall (n : N) (a : A), (f' uv (N.succ n) a = f n a (f' uv n (TA a))))) uv0 = 
-let fix g (n : nat) (a : A) := match n with 
-|O => x a |S n => f (N.of_nat n) a (g n (TA a)) end in fun n => g (N.to_nat n).
+Context (fN : N -> B -> C -> C).
+Lemma hol_N_recursive_align2 : @ε (U -> N -> B -> C) 
+  (fun f' : U -> N -> B -> C => forall uv : U, 
+  (forall b : B, f' uv N0 b = xo2 b) /\ 
+  (forall (n : N) (b : B), (f' uv (N.succ n) b = fN n b (f' uv n (TB b))))) uv0 = 
+  (let fix g (n : nat) (b : B) := 
+  match n with 
+  |O => xo2 b 
+  |S n => fN (N.of_nat n) b (g n (TB b)) end in 
+  fun n => g (N.to_nat n)).
 Proof.
-apply eq_sym. apply (hol_uv_elim (fun f' : N -> A -> B => 
-(forall a : A, f' 0 a = x a) /\ (forall (n : N) (a : A), f' (N.succ n) a = 
-f n a (f' n (TA a))))). split. 
-  - intros (HO,HS). apply N.peano_rect. ext a. now rewrite HO. intros n IHn.
-  ext a. rewrite HS. rewrite IHn. simpl. rewrite Nnat.N2Nat.inj_succ. 
-  now rewrite Nnat.N2Nat.id.
-  - split. intro a. now rewrite H. intros n a. rewrite H. rewrite H. simpl. 
-  rewrite Nnat.N2Nat.inj_succ. now rewrite Nnat.N2Nat.id.
+  apply eq_sym. apply (hol_uv_elim 
+  (fun f' : N -> B -> C => 
+  (forall b : B, f' 0 b = xo2 b) /\ 
+  (forall (n : N) (b : B), f' (N.succ n) b = fN n b (f' n (TB b))))). split. 
+  - intros (HO,HS). apply N.peano_rect. ext b. now rewrite HO. intros n IHn.
+    ext b. rewrite HS. rewrite IHn. simpl. rewrite Nnat.N2Nat.inj_succ. 
+    now rewrite Nnat.N2Nat.id.
+  - split. intro b. now rewrite H. intros n b. rewrite H. rewrite H. simpl. 
+    rewrite Nnat.N2Nat.inj_succ. now rewrite Nnat.N2Nat.id.
 Qed.
 
 (* Case for recursion on the second variable *)
-Lemma hol_N_recursive_align2_varright {U A B : Type'} {uv0 : U} {TA : A -> A} 
-(x : A -> B) (f : A -> N -> B -> B) : @ε (U -> A -> N -> B) 
-(fun f' : U -> A -> N -> B => forall uv : U, (forall a : A, f' uv a N0 = x a) /\ 
-(forall (a : A) (n : N), (f' uv a (N.succ n) = f a n (f' uv (TA a) n)))) uv0 = 
-let fix g (a : A) (n : nat) := match n with |O => x a 
-|S n => f a (N.of_nat n) (g (TA a) n) end in fun a n => g a (N.to_nat n).
+Lemma hol_N_recursive_align2_varright : @ε (U -> B -> N -> C) 
+(fun f' : U -> B -> N -> C => forall uv : U, 
+(forall b : B, f' uv b N0 = xo2 b) /\ 
+(forall (b : B) (n : N), (f' uv b (N.succ n) = fN n b (f' uv (TB b) n)))) uv0 = 
+(let fix g (b : B) (n : nat) := 
+match n with 
+|O => xo2 b 
+|S n => fN (N.of_nat n) b (g (TB b) n) end in 
+fun b n => g b (N.to_nat n)).
 Proof.
-apply eq_sym. apply (hol_uv_elim (fun f' : A -> N -> B => 
-(forall a : A, f' a 0 = x a) /\ (forall (a : A) (n : N), f' a (N.succ n) = 
-f a n (f' (TA a) n)))). split. 
-  - intros (HO,HS) a. ext n. revert n a. 
-  apply (N.peano_rect (fun n => forall (a : A), g' a n = 
-  (let fix g (a0 : A) (n0 : nat) {struct n0} : B := match n0 with 
-  | 0%nat => x a0 | S n1 => f a0 (N.of_nat n1) (g (TA a0) n1) end in 
-  fun (a0 : A) (n0 : N) => g a0 (N.to_nat n0)) a n)). 
-  now intro a;rewrite HO. intros n IHn a. rewrite HS. rewrite IHn. simpl. 
-  rewrite Nnat.N2Nat.inj_succ. now rewrite Nnat.N2Nat.id.
+  apply eq_sym. apply (hol_uv_elim 
+  (fun f' : B -> N -> C => 
+  (forall b : B, f' b 0 = xo2 b) /\ 
+  (forall (b : B) (n : N), f' b (N.succ n) = fN n b (f' (TB b) n)))). split. 
+  - intros (HO,HS) b. ext n. revert n b. 
+    apply (N.peano_rect 
+    (fun n => 
+    forall (b : B), g' b n = 
+    (let fix g (b0 : B) (n0 : nat) {struct n0} : C := 
+    match n0 with 
+    | 0%nat => xo2 b0 
+    | S n1 => fN (N.of_nat n1) b0 (g (TB b0) n1) end in 
+    fun (b0 : B) (n0 : N) => g b0 (N.to_nat n0)) b n)). 
+    now intro b;rewrite HO. intros n IHn b. rewrite HS. rewrite IHn. simpl. 
+    rewrite Nnat.N2Nat.inj_succ. now rewrite Nnat.N2Nat.id.
   - split. intro a. now rewrite H. intros a n. rewrite H. rewrite H. simpl. 
-  rewrite Nnat.N2Nat.inj_succ. now rewrite Nnat.N2Nat.id.
+    rewrite Nnat.N2Nat.inj_succ. now rewrite Nnat.N2Nat.id.
 Qed.
 
 (* simplifying a match made with COND over a list *) 
-Lemma COND_list {A B : Type'} {l : lA} {x y : B} : 
+Lemma COND_list {l : lA} {x y : B} : 
 COND (l=nil) x y = match l with |nil => x |a::l => y end.
 Proof.
 induction l.
-  - replace (nil=nil) with True. apply COND_True. apply prop_ext;intro H;auto.
-  - replace (a::l = nil) with False. apply COND_False. apply prop_ext;intro H. 
+  - rewrite (refl_is_True). apply COND_True. 
+  - assert (H : (a::l=nil) = False). apply prop_ext. intro H. apply eq_sym in H. 
+    now destruct (nil_cons H). easy. rewrite H. apply COND_False. apply prop_ext;intro H. 
   destruct H. apply not_eq_sym in H. destruct H. apply nil_cons.
 Qed.
 
