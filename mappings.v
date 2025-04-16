@@ -2163,145 +2163,217 @@ Require Import Coq.Lists.List.
 (****************************************************************************)
 (* Some first lemmas to help automatize function alignments *)
 (****************************************************************************)
+Section list_recursion_align.
+(* a function translated from HOL-Light will usually look like the following :
 
-(* HOL-Light unnecessary variable elimination *) 
-Lemma hol_uv_elim {U A B : Type'} {g : A -> B} (P : (A -> B) -> Prop) {uv0 : U} : 
-(forall g' : A -> B, P g' <-> forall x : A, g' x = g x) -> 
-g = ε (fun f : U -> A -> B => forall uv : U, P (f uv)) uv0.
+  "Exemple = ε (U -> (...)) (fun f => forall uv : U P (f (uv))) uv0"
+  where P f is a Prop defining the function that does not depend on uv 
+  (so the uv0 appearing does not impact the function whatsoever)
+
+  in the case of a recursive function, P will contain one clause per constructor 
+  so the main goal of this section is to define lemmas that translates such a function
+  to a coq fixpoint by matching each clause in P with a case in match. 
+
+  Our first lemma expresses the fact that U (which is a type of the form 
+  N * N * ... * N) is useless in the definition, so that to prove g = Exemple 
+  one only has to prove P g and that g is unique in that regard. 
+  It is useful in most cases, but fails whenever Exemple is not uniquely defined 
+  (for exemple the head of a list is only unique up to a default value for nil *) 
+
+Context {U : Type'} {uv0 : U}.
+
+Lemma hol_uv_elim {A B : Type'} {g : A -> B} (P : (A -> B) -> Prop) : 
+  (forall g' : A -> B, P g' <-> forall x : A, g' x = g x) -> 
+  g = ε (fun f : U -> A -> B => forall uv : U, P (f uv)) uv0.
 Proof. 
-intro H. assert (He : exists g' : U -> A -> B, forall uv' : U, P (g' uv')). 
-exists (fun _ => g). intro. now apply H. apply eq_sym. apply fun_ext. 
-apply H. now apply ε_spec in He. 
+  intro H. assert (He : exists g' : U -> A -> B, forall uv' : U, P (g' uv')). 
+  exists (fun _ => g). intro. now apply H. apply eq_sym. apply fun_ext. 
+  apply H. now apply ε_spec in He. 
 Qed.
 
-(* automatically translating inductive functions on lists. To be improved ? *) 
-Lemma hol_list_recursive_align {U A B : Type'} {uv0 : U} 
-(x : B) (f : A -> list A -> B -> B) : @ε (U -> list A -> B) 
-(fun f' : U -> list A -> B => forall uv : U, (f' uv nil = x) /\ 
-(forall a : A, forall l : list A, (f' uv (a::l) = f a l (f' uv l)))) uv0 = 
-fix g (l : list A) := match l with |nil => x |a::l => f a l (g l) end.
+(* The following lemmas automatically translate a HOL-Light list recursion 
+  to a fixpoint.
+  They are mainly intended for rewriting (explaining the direction of the equality) 
+  although sometimes they can be the exact wanted alignment. *)
+
+Context {A B C D : Type'}.
+Let lA := list A.
+
+(* These are the cases of the recursive definitions at play. 
+
+  x is the value for nil and depends on all other parameters of the function
+
+  f is the recursive step for a::l, it depends on all other parameters, a, l
+  plus a parameter for the recursive call. 
+
+  The T functions represent the additional transformations applied to other 
+  parameters during the recursive call. for example instead of 
+  recursion on two lists, functions will look like 
+  "g l l' := match l with (...) |a::l => (...) g l (tl l' d)" so here we'd 
+  have TB := fun l' => tl l' x*)
+
+
+Context (x : B) (x2 : B -> C) (x3 : B -> C -> D).
+Context (f : A -> lA -> B -> B) (f2 : B -> A -> lA -> C -> C)
+(f3 : B -> A -> lA -> C -> D -> D).
+Context {TB : B -> B} {TC : C -> C}.
+
+(* Now there are multiple lemmas : depending on the number of parameters, 
+  which parameter the recursion is on (often in second place), 
+  in which order the variables are quantified for the recursive call 
+  (parameters are in order but the a from a::l is not always quantified in 
+  the same place for some reason), 
+  and wether or not the definition is total (for now only considering 
+  partial functions for which the nil case is not defined, 
+  but other examples do happen). *)
+  
+Lemma hol_list_recursive_align : @ε (U -> lA -> B) 
+  (fun f' : U -> lA -> B => forall uv : U, 
+  (f' uv nil = x) /\ 
+  (forall a : A, forall l : lA, (f' uv (a::l) = f a l (f' uv l)))) uv0 = 
+  fix g (l : lA) := match l with nil => x | a::l => f a l (g l) end.
 Proof.
-apply eq_sym. apply (hol_uv_elim (fun f' : list A -> B => f' nil = x /\ 
-  (forall (a : A) (l : list A), f' (a :: l) = f a l (f' l)))). split. 
+  apply eq_sym. apply (hol_uv_elim 
+  (fun f' : list A -> B => f' nil = x /\ 
+  (forall (a : A) (l : lA), f' (a :: l) = f a l (f' l)))). split. 
   - intros (Hn,Hc) l. induction l. auto. rewrite Hc. now rewrite IHl. 
-  - intro H. split. auto. intros. rewrite H. now rewrite H. 
+  - intro H. split. auto. intros a l. rewrite H. now rewrite H. 
 Qed.
 
-(* variant for when a is quantified second in the f(a::l) definition. 
-Why do both exist ? *)
-Lemma hol_list_recursive_align_varright {U A B : Type'} {uv0 : U} 
-(x : B) (f : A -> list A -> B -> B) : @ε (U -> list A -> B) 
-(fun f' : U -> list A -> B => forall uv : U, (f' uv nil = x) /\ 
-(forall (l : list A) (a : A), (f' uv (a::l) = f a l (f' uv l)))) uv0 = 
-fix g (l : list A) := match l with |nil => x |a::l => f a l (g l) end.
+Lemma hol_list_recursive_align_varright : @ε (U -> lA -> B) 
+  (fun f' : U -> lA -> B => forall uv : U, 
+  (f' uv nil = x) /\ 
+  (forall (l : lA) (a : A), (f' uv (a::l) = f a l (f' uv l)))) uv0 = 
+  fix g (l : lA) := match l with nil => x | a::l => f a l (g l) end.
 Proof.
-apply eq_sym. apply (hol_uv_elim (fun f' : list A -> B => f' nil = x /\ 
-(forall (l : list A) (a : A), f' (a :: l) = f a l (f' l)))). split. 
+  apply eq_sym. apply (hol_uv_elim 
+  (fun f' : lA -> B => f' nil = x /\ 
+  (forall (l : lA) (a : A), f' (a :: l) = f a l (f' l)))). split. 
   - intros (Hn,Hc) l. induction l. auto. rewrite Hc. now rewrite IHl. 
-  - intro H. split. auto. intros. rewrite H. now rewrite H. 
+  - intro H. split. auto. intros l a. rewrite H. now rewrite H. 
 Qed.
 
-Lemma hol_list_recursive_align2 {U A B C : Type'} {uv0 : U} {TB : B -> B} 
-(x : B -> C) (f : B -> A -> list A -> C -> C) : @ε (U -> B -> list A -> C) 
-(fun f' : U -> B -> list A -> C => forall uv : U, 
-(forall b : B, f' uv b nil = x b) /\ 
-(forall a : A, forall b : B, forall l : list A, (f' uv b (a::l) = 
-f b a l (f' uv (TB b) l)))) uv0 = 
-fix g (b : B) (l : list A) := match l with 
-|nil => x b |a::l => f b a l (g (TB b) l) end.
+Lemma hol_list_recursive_align2 : @ε (U -> B -> lA -> C) 
+  (fun f' : U -> B -> lA -> C => forall uv : U, 
+  (forall b : B, f' uv b nil = x2 b) /\ 
+  (forall a : A, forall b : B, forall l : lA, 
+  (f' uv b (a::l) = f2 b a l (f' uv (TB b) l)))) uv0 = 
+  (fix g (b : B) (l : lA) := 
+  match l with
+  |nil => x2 b
+  |a::l => f2 b a l (g (TB b) l) end).
 Proof.
-apply eq_sym. apply (hol_uv_elim (fun f' : B -> list A -> C => 
-(forall b : B, f' b nil = x b) /\ (forall (a : A) (b : B) (l : list A),
-f' b (a :: l) = f b a l (f' (TB b) l)))). split. 
+  apply eq_sym. apply (hol_uv_elim 
+  (fun f' : B -> lA -> C =>
+  (forall b : B, f' b nil = x2 b) /\ 
+  (forall (a : A) (b : B) (l : lA),
+  f' b (a :: l) = f2 b a l (f' (TB b) l)))). split. 
   - intros (Hn,Hc) b. ext l. revert b. induction l. auto. intro. rewrite Hc.
-  now rewrite IHl.
+    now rewrite IHl.
   - split. intro b. now rewrite H. intros a b l. rewrite H. now rewrite H.
 Qed.
 
-Lemma hol_list_recursive_align2_varmid {U A B C : Type'} {uv0 : U} {TB : B -> B} 
-(x : B -> C) (f : B -> A -> list A -> C -> C) : @ε (U -> B -> list A -> C) 
-(fun f' : U -> B -> list A -> C => forall uv : U, 
-(forall b : B, f' uv b nil = x b) /\ 
-(forall (b : B) (a : A) (l : list A), (f' uv b (a::l) = 
-f b a l (f' uv (TB b) l)))) uv0 = 
-fix g (b : B) (l : list A) := match l with 
-|nil => x b |a::l => f b a l (g (TB b) l) end.
+Lemma hol_list_recursive_align2_varmid : @ε (U -> B -> lA -> C) 
+  (fun f' : U -> B -> lA -> C => forall uv : U, 
+  (forall b : B, f' uv b nil = x2 b) /\ 
+  (forall (b : B) (a : A) (l : lA), 
+  (f' uv b (a::l) = f2 b a l (f' uv (TB b) l)))) uv0 =
+  (fix g (b : B) (l : lA) := 
+  match l with 
+  |nil => x2 b 
+  |a::l => f2 b a l (g (TB b) l) end).
 Proof.
-apply eq_sym. apply (hol_uv_elim (fun f' : B -> list A -> C => 
-(forall b : B, f' b nil = x b) /\ (forall (b : B) (a : A) (l : list A), 
-f' b (a :: l) = f b a l (f' (TB b) l)))). split. 
+  apply eq_sym. apply (hol_uv_elim 
+  (fun f' : B -> lA -> C => 
+  (forall b : B, f' b nil = x2 b) /\ 
+  (forall (b : B) (a : A) (l : lA), 
+  f' b (a :: l) = f2 b a l (f' (TB b) l)))). split. 
   - intros (Hn,Hc) b. ext l. revert b. induction l. auto. intro. 
-  rewrite Hc. now rewrite IHl. 
+    rewrite Hc. now rewrite IHl. 
   - split. intro b. now rewrite H. intros b a l. rewrite H. now rewrite H.
 Qed.
 
-Lemma hol_list_recursive_align3 {U A B C D : Type'} {uv0 : U} {TB : B -> B} 
-{TC : C -> C} (x : B -> C -> D) (f : B -> A -> list A -> C -> D -> D) : 
-@ε (U -> B -> list A -> C -> D) (fun f' : U -> B -> list A -> C -> D => 
-forall uv : U, (forall b : B, forall c:C, f' uv b nil c = x b c) /\ 
-(forall a : A, forall b : B, forall l : list A, forall c : C, 
-(f' uv b (a::l) c = f b a l c (f' uv (TB b) l (TC c))))) uv0 = 
-fix g (b : B) (l : list A) (c : C) := match l with 
-|nil => x b c |a::l => f b a l c (g (TB b) l (TC c)) end.
+Lemma hol_list_recursive_align3 : @ε (U -> B -> lA -> C -> D) 
+  (fun f' : U -> B -> lA -> C -> D => forall uv : U, 
+  (forall b : B, forall c:C, f' uv b nil c = x3 b c) /\ 
+  (forall a : A, forall b : B, forall l : lA, forall c : C, 
+  (f' uv b (a::l) c = f3 b a l c (f' uv (TB b) l (TC c))))) uv0 = 
+  (fix g (b : B) (l : lA) (c : C) := 
+  match l with 
+  |nil => x3 b c 
+  |a::l => f3 b a l c (g (TB b) l (TC c)) end).
 Proof.
-apply eq_sym. apply (hol_uv_elim (fun f' : B -> list A -> C -> D => 
-(forall (b : B) (c : C), f' b nil c = x b c) /\ 
-(forall (a : A) (b : B) (l : list A) (c : C), f' b (a :: l) c = 
-f b a l c (f' (TB b) l (TC c))))). split.
+  apply eq_sym. apply (hol_uv_elim 
+  (fun f' : B -> lA -> C -> D => 
+  (forall (b : B) (c : C), f' b nil c = x3 b c) /\ 
+  (forall (a : A) (b : B) (l : lA) (c : C), 
+  f' b (a :: l) c = f3 b a l c (f' (TB b) l (TC c))))). split.
   - intros (Hn,Hc) b. ext l. revert b. induction l;intro b;ext c. auto. 
-  rewrite Hc. now rewrite IHl.
+    rewrite Hc. now rewrite IHl.
   - split. intros b c. now rewrite H. intros a b l c. rewrite H. now rewrite H.
 Qed.
 
 (* the specific case of partial maps where only the nil case is let unknown *)
-Lemma hol_list_partial_align {U A B : Type'} {uv0 : U} 
-(f : A -> list A -> B -> B) : let g:= @ε (U -> list A -> B) 
-(fun f' : U -> list A -> B => forall uv : U, (forall a : A, forall l : list A, 
-(f' uv (a::l) = f a l (f' uv l)))) uv0 in g = fix h (l : list A) := 
-match l with |nil => g nil |a::l => f a l (g l) end.
+Lemma hol_list_partial_align : let g:= @ε (U -> lA -> B) 
+  (fun f' : U -> lA -> B => forall uv : U, 
+  (forall a : A, forall l : lA, (f' uv (a::l) = f a l (f' uv l)))) uv0 in 
+  g = (fix h (l : lA) := 
+  match l with 
+  |nil => g nil 
+  |a::l => f a l (g l) end).
 Proof.
-assert (He : exists g' : U -> list A -> B, forall uv' : U, 
-(forall a : A, forall l : list A, (g' uv' (a::l) = f a l (g' uv' l)))). 
-  - now exists (fix g'' uv' l := match l with |nil => el B 
-  |a::l => f a l (g'' uv' l) end).
+  assert (He : exists g' : U -> lA -> B, forall uv' : U, 
+  (forall a : A, forall l : lA, (g' uv' (a::l) = f a l (g' uv' l)))). 
+  - now exists (fix g'' uv' l := 
+    match l with
+    |nil => el B
+    |a::l => f a l (g'' uv' l) end).
   - apply ε_spec in He. ext l. now induction l. 
 Qed.
 
-Lemma hol_list_partial_align_varright {U A B : Type'} {uv0 : U} 
-(f : A -> list A -> B -> B) : let g:= @ε (U -> list A -> B) 
-(fun f' : U -> list A -> B => forall uv : U, (forall (l : list A) (a:A), 
-(f' uv (a::l) = f a l (f' uv l)))) uv0 in g = fix h (l : list A) := 
-match l with |nil => g nil |a::l => f a l (h l) end.
+Lemma hol_list_partial_align_varright : let g:= @ε (U -> lA -> B) 
+(fun f' : U -> lA -> B => forall uv : U, 
+(forall (l : lA) (a:A), (f' uv (a::l) = f a l (f' uv l)))) uv0 in 
+g = (fix h (l : lA) := 
+match l with 
+|nil => g nil 
+|a::l => f a l (h l) end).
 Proof.
-assert (He : exists g' : U -> list A -> B, forall uv' : U, 
-(forall (l : list A) (a:A), (g' uv' (a::l) = f a l (g' uv' l)))). 
-  - now exists (fix g'' uv' l := match l with |nil => el B 
-  |a::l => f a l (g'' uv' l) end).
+  assert (He : exists g' : U -> lA -> B, forall uv' : U, 
+  (forall (l : lA) (a:A), (g' uv' (a::l) = f a l (g' uv' l)))). 
+  - now exists (fix g'' uv' l := 
+    match l with 
+    |nil => el B 
+    |a::l => f a l (g'' uv' l) end).
   - apply ε_spec in He. simpl in He. ext l. induction l. auto. rewrite He. 
-  now rewrite <- IHl.
+    now rewrite <- IHl.
 Qed.
 
-Lemma hol_list_partial_align2 {U A B C : Type'} {uv0 : U} {TB : B -> B} 
-(f : B -> A -> list A -> C -> C) : let g:= @ε (U -> B -> list A -> C) 
-(fun f' : U -> B -> list A -> C => forall uv : U, (forall (a : A) (b : B) 
-(l : list A), (f' uv b (a::l) = f b a l (f' uv (TB b) l)))) uv0 in 
-g = fix h b (l : list A) := 
-match l with |nil => g b nil |a::l => f b a l (h (TB b) l) end.
+Lemma hol_list_partial_align2 : let g:= @ε (U -> B -> lA -> C) 
+  (fun f' : U -> B -> lA -> C => forall uv : U, 
+  (forall (a : A) (b : B) (l : lA), 
+  (f' uv b (a::l) = f2 b a l (f' uv (TB b) l)))) uv0 in 
+  g = (fix h b (l : lA) := 
+  match l with 
+  |nil => g b nil 
+  |a::l => f2 b a l (h (TB b) l) end).
 Proof.
-assert (He : exists g' : U -> B -> list A -> C, 
-forall (uv' : U) (a : A) (b : B) (l : list A), (g' uv' b (a::l) = 
-f b a l (g' uv' (TB b) l))). 
-  - now exists (fix g'' uv' b l := match l with |nil => el C 
-  |a::l => f b a l (g'' uv' (TB b) l) end).
+  assert (He : exists g' : U -> B -> lA -> C, 
+  forall (uv' : U) (a : A) (b : B) (l : lA), 
+  (g' uv' b (a::l) = f2 b a l (g' uv' (TB b) l))). 
+  - now exists (fix g'' uv' b l := 
+    match l with 
+    |nil => el C 
+    |a::l => f2 b a l (g'' uv' (TB b) l) end).
   - apply ε_spec in He. simpl in He. ext b l. revert b. induction l. 
-  auto. intro b. rewrite He. now rewrite <- IHl.
+    auto. intro b. rewrite He. now rewrite <- IHl.
 Qed.
 
 (* Same kind of theorem but for peano recursion on N, 
-using the bijection between nat and N *)
-Lemma hol_N_recursive_align2 {U A B : Type'} {uv0 : U} {TA : A -> A} 
-(x : A -> B) (f : N -> A -> B -> B) : @ε (U -> N -> A -> B) 
-(fun f' : U -> N -> A -> B => forall uv : U, (forall a : A, f' uv N0 a = x a) /\ 
+  using the bijection between nat and N. *)
+Lemma hol_N_recursive_align2 (fN : N -> B -> C -> C) : @ε (U -> N -> B -> C) 
+  (fun f' : U -> N -> A -> B => forall uv : U, 
+  (forall a : A, f' uv N0 a = x a) /\ 
 (forall (n : N) (a : A), (f' uv (N.succ n) a = f n a (f' uv n (TA a))))) uv0 = 
 let fix g (n : nat) (a : A) := match n with 
 |O => x a |S n => f (N.of_nat n) a (g n (TA a)) end in fun n => g (N.to_nat n).
@@ -2339,7 +2411,7 @@ f a n (f' (TA a) n)))). split.
 Qed.
 
 (* simplifying a match made with COND over a list *) 
-Lemma COND_list {A B : Type'} {l : list A} {x y : B} : 
+Lemma COND_list {A B : Type'} {l : lA} {x y : B} : 
 COND (l=nil) x y = match l with |nil => x |a::l => y end.
 Proof.
 induction l.
@@ -2348,6 +2420,7 @@ induction l.
   destruct H. apply not_eq_sym in H. destruct H. apply nil_cons.
 Qed.
 
+end list_recursion_align.
 (****************************************************************************)
 (* Alignment of list functions *)
 (****************************************************************************)
@@ -2471,16 +2544,11 @@ destruct (f a). rewrite <- is_true_of_true. rewrite COND_True. rewrite
 <- IHl. reflexivity.  rewrite <- is_true_of_false. apply COND_False.
 Qed.*)
 
-Lemma eq_sym_r {A : Type} (a b : A) : (a=b)=(b=a). 
-Proof. 
-now apply prop_ext;intro;apply eq_sym. 
-Qed.
-
 Lemma MEM_def {_25376 : Type'} : (@In _25376) = (@ε ((prod N (prod N N)) -> _25376 -> (list _25376) -> Prop) (fun MEM' : (prod N (prod N N)) -> _25376 -> (list _25376) -> Prop => forall _17995 : prod N (prod N N), (forall x : _25376, (MEM' _17995 x (@nil _25376)) = False) /\ (forall h : _25376, forall x : _25376, forall t : list _25376, (MEM' _17995 x (@cons _25376 h t)) = ((x = h) \/ (MEM' _17995 x t)))) (@pair N (prod N N) (NUMERAL (BIT1 (BIT0 (BIT1 (BIT1 (BIT0 (BIT0 (BIT1 0)))))))) (@pair N N (NUMERAL (BIT1 (BIT0 (BIT1 (BIT0 (BIT0 (BIT0 (BIT1 0)))))))) (NUMERAL (BIT1 (BIT0 (BIT1 (BIT1 (BIT0 (BIT0 (BIT1 0))))))))))).
 Proof.
 rewrite (hol_list_recursive_align2 (A:=_25376) (fun _ => False) 
 (fun a' a l c => a'=a \/ c)). 
-ext a l. induction l. auto. rewrite <- IHl. now rewrite (eq_sym_r a a0).
+ext a l. induction l. auto. rewrite <- IHl. now rewrite (sym a a0).
 Qed.
 
 Fixpoint repeatpos {A : Type} (a : A) (n : positive) : list A := match n with
@@ -2493,7 +2561,7 @@ Definition repeatN {A : Type} (a : A) (n : N) : list A := match n with
 |Npos n => repeatpos a n end. 
 
 Lemma repeatN_double {A : Type} (a : A) (n : N) : 
-repeatN a (N.double(n)) = repeatN a n ++ (repeatN a n).
+repeatN a (N.double n) = repeatN a n ++ (repeatN a n).
 Proof.
 induction n;auto.
 Qed. 
