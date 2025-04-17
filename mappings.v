@@ -2397,15 +2397,15 @@ Qed.
 
 (* Case for recursion on the second variable *)
 Lemma hol_N_recursive_align2_varright (fN : B-> N -> C -> C) : @ε (U -> B -> N -> C) 
-(fun f' : U -> B -> N -> C => forall uv : U, 
-(forall b : B, f' uv b N0 = xo2 b) /\
-(forall (b : B) (n : N), 
-(f' uv b (N.succ n) = fN b n (f' uv (TB b) n)))) uv0 = 
-(let fix g (b : B) (n : nat) := 
-match n with 
-|O => xo2 b 
-|S n => fN b (N.of_nat n) (g (TB b) n) end in 
-fun b n => g b (N.to_nat n)).
+  (fun f' : U -> B -> N -> C => forall uv : U, 
+  (forall b : B, f' uv b N0 = xo2 b) /\
+  (forall (b : B) (n : N), 
+  (f' uv b (N.succ n) = fN b n (f' uv (TB b) n)))) uv0 = 
+  (let fix g (b : B) (n : nat) := 
+  match n with 
+  |O => xo2 b 
+  |S n => fN b (N.of_nat n) (g (TB b) n) end in 
+  fun b n => g b (N.to_nat n)).
 Proof.
   apply eq_sym. apply (hol_uv_elim 
   (fun f' : B -> N -> C => 
@@ -2428,18 +2428,18 @@ Qed.
 
 Lemma test {x y : B} {P : Prop} : ~P -> COND P x y = y.
 Proof. 
-intro H. replace P with False. apply COND_False. apply prop_ext;easy.
+  intro H. replace P with False. apply COND_False. apply prop_ext;easy.
 Qed.
 
 End list_recursion_align.
 
 (* simplifying a match made with COND over a list *) 
 Lemma COND_list {A : Type} {B : Type'} {l : list A} {x y : B} : 
-COND (l=nil) x y = match l with |nil => x |a::l => y end.
+  COND (l=nil) x y = match l with nil => x | _ => y end.
 Proof.
-induction l.
-- rewrite (refl_is_True). apply COND_True. 
-- replace (a::l=nil) with False. apply COND_False. 
+  induction l.
+  - rewrite (refl_is_True). apply COND_True. 
+  - replace (a::l=nil) with False. apply COND_False. 
   apply prop_ext. easy. apply not_eq_sym. apply nil_cons.
 Qed.
 
@@ -2473,8 +2473,8 @@ match l with
 (* in case it might be useful ? *)
 Lemma length_of_nat_N {A : Type} (l : list A) : N.of_nat (length l) = lengthN l.
 Proof.
-induction l. auto. unfold length. rewrite Nnat.Nat2N.inj_succ. simpl.
-now rewrite <- IHl.
+  induction l. auto. unfold length. rewrite Nnat.Nat2N.inj_succ. simpl.
+  now rewrite <- IHl.
 Qed.
 
 Lemma LENGTH_def {A : Type'} : lengthN = (@ε ((prod N (prod N (prod N (prod N (prod N N))))) -> (list A) -> N) (fun LENGTH' : (prod N (prod N (prod N (prod N (prod N N))))) -> (list A) -> N => forall _18106 : prod N (prod N (prod N (prod N (prod N N)))), ((LENGTH' _18106 (@nil A)) = (N0)) /\ (forall h : A, forall t : list A, (LENGTH' _18106 (@cons A h t)) = (N.succ (LENGTH' _18106 t)))) (@pair N (prod N (prod N (prod N (prod N N)))) ((BIT0 (BIT0 (BIT1 (BIT1 (BIT0 (BIT0 (BIT1 N0)))))))) (@pair N (prod N (prod N (prod N N))) ((BIT1 (BIT0 (BIT1 (BIT0 (BIT0 (BIT0 (BIT1 N0)))))))) (@pair N (prod N (prod N N)) ((BIT0 (BIT1 (BIT1 (BIT1 (BIT0 (BIT0 (BIT1 N0)))))))) (@pair N (prod N N) ((BIT1 (BIT1 (BIT1 (BIT0 (BIT0 (BIT0 (BIT1 N0)))))))) (@pair N N ((BIT0 (BIT0 (BIT1 (BIT0 (BIT1 (BIT0 (BIT1 N0)))))))) ((BIT0 (BIT0 (BIT0 (BIT1 (BIT0 (BIT0 (BIT1 N0)))))))))))))).
