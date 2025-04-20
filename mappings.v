@@ -2161,164 +2161,49 @@ Qed.
 Require Import Coq.Lists.List. 
 
 (****************************************************************************)
-(* Some first lemmas to help automatize function alignments *)
+(* Some tactics to help automatize function alignments *)
 (****************************************************************************)
-Section list_recursion_align.
+
 (* a function translated from HOL-Light will usually look like the following :
 
   "Exemple = ε (U -> (...)) (fun f => forall uv : U P (f (uv))) uv0"
-  where P f is a Prop defining the function that does not depend on uv 
+  where P f is a Prop defining the function that does not depend on uv
   (so the uv0 appearing does not impact the function whatsoever)
 
   in the case of a recursive function, P will contain
-  one clause per constructor so the main goal of this section is
-  to define lemmas that translates such a function to a coq fix by
-  matching each clause in P with a case in match.
+  one clause per constructor.
 
-  Our first lemma expresses the fact that U (which is a type of the form
-  N * N * ... * N) is useless in the definition, so that to prove g = Exemple
-  one only has to prove P g and that g is unique in that regard.
-  It is useful in most cases, but fails whenever Exemple is not
-  uniquely defined (for exemple the head of a list is only unique up to
-  a default value for hd nil *)  
-
-Context {U : Type'} {uv0 : U}.
-
-(* The following lemmas automatically translate a HOL-Light list recursion 
-  to a fixpoint.
-  They are mainly intended for rewriting (explaining the direction of the equality) 
-  although sometimes they can be the exact wanted alignment. *)
-
-Context {A B C : Type'}.
-Let lA := list A.
-
-(* These are the cases of the recursive definitions at play.
-
-  xo is the value for nil/0 and depends on all other parameters of the function
-
-  f is the recursive step for a::l, it depends on all other parameters, a, l
-  plus a parameter for the recursive call.
-
-  The T functions represent the additional transformations applied to other
-  parameters during the recursive call. for example instead of
-  recursion on two lists, functions will look like
-  "g l l' := match l with (...) |a::l => (...) g l (tl l' d)" so here we would
-  have TB := fun l' => tl l' x*)
-
-
-Context (xo : B) (xo2 : B -> C).
-Context (f : A -> lA -> B -> B) (f2 : B -> A -> lA -> C -> C).
-Context {TB : B -> B}.
-
-(* Now there are multiple lemmas : depending on the number of parameters,
-  which parameter the recursion is on (often in second place),
-  in which order the variables are quantified for the recursive call
-  (parameters are in order but the a from a::l is not always quantified in
-  the same place for some reason),
-  and wether or not the definition is total (for now only considering
-  partial functions for which the nil case is not defined,
-  but other examples do happen).
-
-  All lemmas are now included in tactic rec_align defined right after this section. *)
-
-
-(* the specific case of partial maps where only the nil case is let unknown *)
-Lemma hol_list_partial_align : let g:= @ε (U -> lA -> B) 
-  (fun f' : U -> lA -> B => forall uv : U, 
-  (forall a : A, forall l : lA, (f' uv (a::l) = f a l (f' uv l)))) uv0 in 
-  g = (fix h (l : lA) := 
-  match l with 
-  |nil => g nil 
-  |a::l => f a l (g l) end).
-Proof.
-  assert (He : exists g' : U -> lA -> B, forall uv' : U, 
-  (forall a : A, forall l : lA, (g' uv' (a::l) = f a l (g' uv' l)))). 
-  - now exists (fix g'' uv' l := 
-    match l with
-    |nil => el B
-    |a::l => f a l (g'' uv' l) end).
-  - apply ε_spec in He. ext l. now induction l. 
-Qed.
-
-Lemma hol_list_partial_align_varright : let g:= @ε (U -> lA -> B) 
-  (fun f' : U -> lA -> B => forall uv : U, 
-  (forall (l : lA) (a:A), (f' uv (a::l) = f a l (f' uv l)))) uv0 in 
-  g = (fix h (l : lA) := 
-  match l with 
-  |nil => g nil 
-  |a::l => f a l (h l) end).
-Proof.
-  assert (He : exists g' : U -> lA -> B, forall uv' : U, 
-  (forall (l : lA) (a:A), (g' uv' (a::l) = f a l (g' uv' l)))). 
-  - now exists (fix g'' uv' l := 
-    match l with 
-    |nil => el B 
-    |a::l => f a l (g'' uv' l) end).
-  - apply ε_spec in He. simpl in He. ext l. induction l. auto. rewrite He. 
-    now rewrite <- IHl.
-Qed.
-
-Lemma hol_list_partial_align2 : let g:= @ε (U -> B -> lA -> C) 
-  (fun f' : U -> B -> lA -> C => forall uv : U, 
-  (forall (a : A) (b : B) (l : lA), 
-  (f' uv b (a::l) = f2 b a l (f' uv (TB b) l)))) uv0 in 
-  g = (fix h b (l : lA) := 
-  match l with 
-  |nil => g b nil 
-  |a::l => f2 b a l (h (TB b) l) end).
-Proof.
-  assert (He : exists g' : U -> B -> lA -> C, 
-  forall (uv' : U) (a : A) (b : B) (l : lA), 
-  (g' uv' b (a::l) = f2 b a l (g' uv' (TB b) l))). 
-  - now exists (fix g'' uv' b l := 
-    match l with 
-    |nil => el C 
-    |a::l => f2 b a l (g'' uv' (TB b) l) end).
-  - apply ε_spec in He. simpl in He. ext b l. revert b. induction l. 
-    auto. intro b. rewrite He. now rewrite <- IHl.
-Qed.
-
-
-
-End list_recursion_align.
-
-Tactic Notation "partial_align" uconstr(f) :=
-  try rewrite (hol_list_partial_align f);
-  try rewrite (hol_list_partial_align_varright f);
-  try rewrite (hol_list_partial_align2 f). 
-
-(* simplifying a match made with COND over a list *) 
-Lemma COND_list {A : Type} {B : Type'} {l : list A} {x y : B} : 
-  COND (l=nil) x y = match l with nil => x | _ => y end.
-Proof.
-  induction l.
-  - rewrite (refl_is_True). apply COND_True. 
-  - replace (a::l=nil) with False. apply COND_False. 
-  apply prop_ext. easy. apply not_eq_sym. apply nil_cons.
-Qed.
-
-(****************************************************************************)
-(* Alignment of list functions *)
-(****************************************************************************)
-
-
+  This first tactic, barely modified from the align_ε tactic,
+  associates exemple with (fun uv => exemple) uv0 and applies f_equal to remove uv0
+  then removes the ε. *)
 Ltac align_simple :=
   match goal with |- ?f = ε ?P ?r =>
-    apply (f_equal (fun g => g r) (x := fun _ => f)) ; 
-    let H := fresh "H" in 
-    assert (H : P (fun _ => f)) ; 
-    [ intros 
-    | apply align_ε ;
-      [ exact H
+    apply (f_equal (fun g => g r) (x := fun _ => f)) ;
+    let H := fresh "H" in
+    assert (H : P (fun _ => f)) ; (* this only assertion should be enough 
+                                     to solve everything in the case of 
+                                     total recursive functions *)
+    [ intros
+    | apply align_ε ; (* the align_ε lemma replaces a = ε P with two goals
+                         P a and forall x, P x => x = a. this will only work
+                         for total functions *)
+      [ exact H (* we proved P f before because it will be usefull for the second goal *)
       | let f' := fresh "f'" in
-        let na := fresh "uv" in
+        let uv := fresh "uv" in
         let H' := fresh "H'" in
-        intros f' H' ; try ext na ; try specialize (H na) ; 
-        try specialize (H' na) ; try gobble f' na ; revert H H'
+        intros f' H' ; try ext uv ;
+        try specialize (H uv) ; (* remember that P starts with "forall uv" *)
+        try specialize (H' uv) ;
+        try gobble f' uv ; (* replaces f uv and f' uv with f and f',
+                              only thanks to uv not appearing anywhere *)
+        revert H H' (* reverting P f and P f' to reuse them in other tactics *)
       ]] end.
 
-Ltac list_rec_align1 :=
-  align_simple ; [ split ; auto
+(* at this state we have two goals : P f and P f -> P f' -> f = f' *)
+
+Ltac list_rec_align1 := (* only now do we assume that functions are defined recursively
+                           and therefore P is a conjunction of two cases Pnil and Pcons*)
+  align_simple ; [ split ; auto (* since it is a conjunction, we can split *)
   | let l:=fresh "l" in
     let a := fresh "x" in
     let b := fresh "x" in
@@ -2326,12 +2211,24 @@ Ltac list_rec_align1 :=
     let Hcons := fresh "Hcons" in
     let Hnil' := fresh "Hnil'" in 
     let Hcons' := fresh "Hcons'" in
-    intros (Hnil , Hcons) (Hnil' , Hcons') ; ext l ; simpl in l ; 
-    match goal with l : list _ |- _ => 
+    intros (Hnil , Hcons) (Hnil' , Hcons') ; (* naming specifically each clause in H and H' *)
+    ext l ; simpl in l ; (* l will be of type list' A which we need to simplify for coq to see 
+                            it is list A so that induction works. *)
+    match goal with l : list _ |- _ => (* avoiding the case where there is a first parameter that
+                                          is not a list and can be inducted on *)
       induction l ; try ext a ; try ext b ; [
-        try rewrite Hnil ; try rewrite Hnil'
+        try rewrite Hnil ; try rewrite Hnil' 
       | try rewrite Hcons ; try rewrite Hcons' ] ; auto end
+        (* Pnil defines f and f' so normally rewriting it for both is enough
+           Same for Pcons except for the recursive call that can be dealt with 
+           through induction hypothesis. 
+            *)
         ] .
+ (* if all works correctly we have two goals left, Pnil f and Pcons f.
+    Pnil f is often already solved, and with the right definition for f, so is Pcons f. *) 
+
+(* the following tactics do the exact same but trying to induct on the second or third parameter,
+   then copy paste and adapt a bit for recursion on N. *)
 
 Ltac list_rec_align2 :=
   align_simple ; [ split ; auto
@@ -2414,15 +2311,128 @@ Ltac N_rec_align3 :=
       | intros n IHn a b ; try rewrite HS ; try rewrite HS' ] ; auto end
         ] .
 
-
-Tactic Notation "total_align" :=
+Ltac total_align :=
   try list_rec_align1 ; try N_rec_align1 ;
   try list_rec_align2 ; try N_rec_align2 ;
   try list_rec_align3 ; try N_rec_align3 ;
   try match goal with IH : _ |- _ => rewrite <- IH ; auto end.
+  (* "induction" tactic doesn't allow us to explicitly name the induction hypothesis 
+     so we need to try and rewrite it blindly by simply trying every hypothesis.
+     we rewrite it from right to left because f' has no definition and thus it should
+     always work. *)
 
-Definition teste {A : Type'} := 
-  ε (fun (f : N -> list A -> list A -> list A) => forall n : N, (forall l : list A, f n l nil = l) /\ (forall l a l', f n l (a::l') = f n (l ++ a :: nil) l')) 7%N.
+
+(* When the function is not defined for nil, we add hypothesis f uv nil = ε P uv nil in align_ε.
+   Also we can add hypotheses to prove f = f' instead of having to assert them. *)
+Lemma partial_align_ε1 {U A B : Type'} uv0 f (P : (U -> list A -> B) -> Prop) : 
+f uv0 nil = ε P uv0 nil -> P f ->
+  (forall f' uv, f uv nil = f' uv nil -> P f ->  P f' -> 
+  f uv = f' uv) -> f uv0 = ε P uv0.
+Proof.
+  intros Hnil Hcons Hunique. apply Hunique;auto.
+  apply ε_spec. now exists f.
+Qed.
+
+Lemma partial_align_ε2 {U A B C : Type'} uv0 f (P : (U -> A -> list B -> C) -> Prop) : 
+  (forall a, f uv0 a nil = ε P uv0 a nil) -> P f ->
+  (forall f' uv, (forall a, f uv a nil = f' uv a nil) -> P f -> P f' ->
+   forall a, f uv a = f' uv a) -> f uv0 = ε P uv0.
+Proof.
+  intros Hnil Hcons Hunique.
+  ext a. apply Hunique;auto.
+  apply ε_spec. now exists f.
+Qed.
+
+Lemma partial_align_ε3 {U A B C D : Type'} uv0 f (P : (U -> A -> B -> list C -> D) -> Prop)  : 
+  (forall a b, f uv0 a b nil = ε P uv0 a b nil) -> P f ->
+  ( forall f' uv, (forall a b, f uv a b nil = f' uv a b nil) -> P f -> P f' ->
+    forall a b, f uv a b  = f' uv a b) -> f uv0 = ε P uv0.
+Proof.
+  intros Hnil Hcons Hunique.
+  ext a b. apply Hunique;auto.
+  apply ε_spec. now exists f.
+Qed.
+
+Ltac align_simple_partial :=
+  match goal with |- ?f = ε ?P ?r =>
+    try apply (partial_align_ε1 r (fun _ => f)) ; try apply (partial_align_ε2 r (fun _ => f)) ; 
+    try apply (partial_align_ε3 r (fun _ => f)) ;
+      [ intros
+      | intros
+      | idtac
+        ] end.
+
+(* no more having to check that we are inducting on a list because the
+   number of intros before ext l decides which variable we wish to induct on. *)
+
+Ltac list_partial_align1 := 
+  align_simple_partial ; [ auto
+  | auto
+  | let f' := fresh "f'" in
+    let uv := fresh "uv" in
+    let l:=fresh "l" in
+    let a := fresh "x" in
+    let b := fresh "x" in
+    let Hnil := fresh "Hnil" in
+    let Hcons := fresh "Hcons" in
+    let Hcons' := fresh "Hcons'" in
+    intros f' uv Hnil Hcons Hcons' ; ext l ; simpl in l ; 
+    induction l ; try ext a ; try ext b ; [
+        try rewrite Hnil
+      | try rewrite Hcons ; try rewrite Hcons' ] ; auto 
+        ] .
+
+Ltac list_partial_align2 :=
+  align_simple_partial ; [ auto
+  | auto
+  | let f' := fresh "f'" in
+    let uv := fresh "uv" in
+    let l := fresh "l" in
+    let a := fresh "x" in
+    let b := fresh "x" in
+    let Hnil := fresh "Hnil" in
+    let Hcons := fresh "Hcons" in
+    let Hcons' := fresh "Hcons'" in
+    intros f' uv a Hnil Hcons Hcons' ; ext l ; simpl in l ; 
+      revert a ; induction l ; intro a ; try ext b ; [ 
+        try rewrite Hnil
+      | try rewrite Hcons ; try rewrite Hcons' ] ; auto
+        ] .
+
+Ltac list_partial_align3 :=
+  align_simple_partial ; [ auto
+  | auto
+  | let f' := fresh "f'" in
+    let uv := fresh "uv" in
+    let l:=fresh "l" in
+    let a := fresh "x" in
+    let b := fresh "x" in
+    let Hnil := fresh "Hnil" in
+    let Hcons := fresh "Hcons" in
+    let Hnil' := fresh "Hnil'" in 
+    let Hcons' := fresh "Hcons'" in
+    intros f' uv a b Hnil Hcons Hcons'; ext a b l ; simpl in l ;
+    revert a b ; induction l ; intros a b ; [ 
+        try rewrite Hnil
+      | try rewrite Hcons ; try rewrite Hcons' ] ; auto
+        ] .
+
+Ltac partial_align :=
+  try list_partial_align1 ; try list_partial_align2 ;
+  try list_partial_align3 ; try match goal with IH : _ |- _ => rewrite <- IH ; auto end.
+  
+Lemma COND_list {A : Type} {B : Type'} {l : list A} {x y : B} : 
+  COND (l=nil) x y = match l with nil => x | _ => y end.
+Proof.
+  induction l.
+  - rewrite (refl_is_True). apply COND_True. 
+  - replace (a::l=nil) with False. apply COND_False. 
+  apply prop_ext. easy. apply not_eq_sym. apply nil_cons.
+Qed.
+
+(****************************************************************************)
+(* Alignment of list functions *)
+(****************************************************************************)
 
 Lemma APPEND_def {A : Type'} : (@app A) = (@ε ((prod N (prod N (prod N (prod N (prod N N))))) -> (list' A) -> (list' A) -> list' A) (fun APPEND' : (prod N (prod N (prod N (prod N (prod N N))))) -> (list A) -> (list A) -> list A => forall _17935 : prod N (prod N (prod N (prod N (prod N N)))), (forall l : list A, (APPEND' _17935 (@nil A) l) = l) /\ (forall h : A, forall t : list A, forall l : list A, (APPEND' _17935 (@cons A h t) l) = (@cons A h (APPEND' _17935 t l)))) (@pair N (prod N (prod N (prod N (prod N N)))) (NUMERAL (BIT1 (BIT0 (BIT0 (BIT0 (BIT0 (BIT0 (BIT1 0)))))))) (@pair N (prod N (prod N (prod N N))) (NUMERAL (BIT0 (BIT0 (BIT0 (BIT0 (BIT1 (BIT0 (BIT1 0)))))))) (@pair N (prod N (prod N N)) (NUMERAL (BIT0 (BIT0 (BIT0 (BIT0 (BIT1 (BIT0 (BIT1 0)))))))) (@pair N (prod N N) (NUMERAL (BIT1 (BIT0 (BIT1 (BIT0 (BIT0 (BIT0 (BIT1 0)))))))) (@pair N N (NUMERAL (BIT0 (BIT1 (BIT1 (BIT1 (BIT0 (BIT0 (BIT1 0)))))))) (NUMERAL (BIT0 (BIT0 (BIT1 (BIT0 (BIT0 (BIT0 (BIT1 0)))))))))))))).
 Proof.
@@ -2434,9 +2444,9 @@ Proof.
   total_align.
 Qed.
 
-Definition lengthN {A : Type} := 
-fix lengthN (l : list A) := 
-match l with 
+Definition lengthN {A : Type} :=
+fix lengthN (l : list A) :=
+match l with
 |nil => N0
 |_::l => N.succ (lengthN l) end.
 
@@ -2547,18 +2557,18 @@ Proof.
   total_align. intros a' a l. now rewrite (sym a a').
 Qed.
 
-Fixpoint repeatpos {A : Type} (n : positive) (a : A) : list A := 
+Fixpoint repeatpos {A : Type} (n : positive) (a : A) : list A :=
 match n with
 |xH => a::nil
-|xO n => let l := repeatpos n a in l++l 
+|xO n => let l := repeatpos n a in l++l
 |xI n => let l := repeatpos n a in a::l++l end. 
 
-Definition repeatN {A : Type} (n : N) (a : A) : list A := 
-match n with 
-|0 => nil 
+Definition repeatN {A : Type} (n : N) (a : A) : list A :=
+match n with
+|0 => nil
 |Npos n => repeatpos n a end.
 
-Lemma repeatpos_sym {A : Type'} (a : A) (p p' : positive) : 
+Lemma repeatpos_sym {A : Type'} (a : A) (p p' : positive) :
   repeatpos p a ++ a :: repeatpos p' a = a :: repeatpos p a ++ repeatpos p' a.
 Proof. 
   revert p'. induction p;intro p'.
@@ -2575,7 +2585,7 @@ Lemma REPLICATE_def {A : Type'} : repeatN = (@ε ((prod N (prod N (prod N (prod 
 Proof.
   total_align. intros n a. induction n. auto.
   induction p;auto.
-  - simpl. simpl in IHp. repeat rewrite IHp. rewrite <- app_comm_cons. 
+  - simpl. simpl in IHp. repeat rewrite IHp. rewrite <- app_comm_cons.
     now rewrite repeatpos_sym.
 Qed.
 
@@ -2593,7 +2603,7 @@ Definition hd {A:Type'} := @hd A (HD nil).
 
 Lemma HD_def {A : Type'} : @hd A = @HD A.
 Proof.
-  unfold HD. partial_align (fun a _ _ => a). ext l. now induction l.
+unfold HD. partial_align.
 Qed.
 
 Definition TL {A : Type'} := (@ε ((prod N N) -> (list A) -> list A) (fun TL' : (prod N N) -> (list A) -> list A => forall _17931 : prod N N, forall h : A, forall t : list A, (TL' _17931 (@cons A h t)) = t) (@pair N N (NUMERAL (BIT0 (BIT0 (BIT1 (BIT0 (BIT1 (BIT0 (BIT1 0)))))))) (NUMERAL (BIT0 (BIT0 (BIT1 (BIT1 (BIT0 (BIT0 (BIT1 0)))))))))).
@@ -2606,8 +2616,7 @@ end.
 
 Lemma TL_def {A : Type'} : @tl A = @TL A.
 Proof.
-  unfold TL. partial_align (fun _ (l : list A) _ => l). 
-  ext l. now induction l.
+  unfold TL. partial_align. 
 Qed.
 
 Definition is_nil {A : Type} (l : list A) := match l with nil => True | _ => False end.
@@ -2639,9 +2648,7 @@ Definition last {A : Type'} (l : list A) := last l (LAST nil).
 
 Lemma LAST_def {A : Type'} : last = (@ε ((prod N (prod N (prod N N))) -> (list A) -> A) (fun LAST' : (prod N (prod N (prod N N))) -> (list A) -> A => forall _18117 : prod N (prod N (prod N N)), forall h : A, forall t : list A, (LAST' _18117 (@cons A h t)) = (@COND A (t = (@nil A)) h (LAST' _18117 t))) (@pair N (prod N (prod N N)) ((BIT0 (BIT0 (BIT1 (BIT1 (BIT0 (BIT0 (BIT1 N0)))))))) (@pair N (prod N N) ((BIT1 (BIT0 (BIT0 (BIT0 (BIT0 (BIT0 (BIT1 N0)))))))) (@pair N N ((BIT1 (BIT1 (BIT0 (BIT0 (BIT1 (BIT0 (BIT1 N0)))))))) ((BIT0 (BIT0 (BIT1 (BIT0 (BIT1 (BIT0 (BIT1 N0)))))))))))).
 Proof.
-  ext l. unfold last. induction l. auto. 
-  partial_align (fun a l a_rec => COND (l=nil) a a_rec).
-  rewrite COND_list. simpl. now rewrite IHl.
+  partial_align. now rewrite COND_list.
 Qed.
 
 Fixpoint map2 {A B C : Type'} (f : A -> B -> C) (l : list A) (l' : list B) : list C := 
@@ -2676,8 +2683,7 @@ match l with
 
 Lemma ASSOC_def {A B : Type'} : assoc = (@ε ((prod N (prod N (prod N (prod N N)))) -> A -> (list (prod A B)) -> B) (fun ASSOC' : (prod N (prod N (prod N (prod N N)))) -> A -> (list (prod A B)) -> B => forall _18192 : prod N (prod N (prod N (prod N N))), forall h : prod A B, forall a : A, forall t : list (prod A B), (ASSOC' _18192 a (@cons (prod A B) h t)) = (@COND B ((@fst A B h) = a) (@snd A B h) (ASSOC' _18192 a t))) (@pair N (prod N (prod N (prod N N))) ((BIT1 (BIT0 (BIT0 (BIT0 (BIT0 (BIT0 (BIT1 N0)))))))) (@pair N (prod N (prod N N)) ((BIT1 (BIT1 (BIT0 (BIT0 (BIT1 (BIT0 (BIT1 N0)))))))) (@pair N (prod N N) ((BIT1 (BIT1 (BIT0 (BIT0 (BIT1 (BIT0 (BIT1 N0)))))))) (@pair N N ((BIT1 (BIT1 (BIT1 (BIT1 (BIT0 (BIT0 (BIT1 N0)))))))) ((BIT1 (BIT1 (BIT0 (BIT0 (BIT0 (BIT0 (BIT1 N0))))))))))))).
 Proof.
-  partial_align (fun a (c : A*B) l b => COND (fst c = a) (snd c) b).
-  unfold assoc. ext a l. induction l. auto. now rewrite IHl.
+  partial_align. 
 Qed.
 
 Fixpoint zip {A B : Type'} (l : list A) (l' : list B) := 
