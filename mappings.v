@@ -111,23 +111,24 @@ Ltac gobble f x :=
 
 (* a function translated from HOL-Light will usually look like the following :
 
-  "Exemple = ε (U -> (...)) (fun f => forall uv : U P (f (uv))) uv0"
+  "Example = ε (U -> (...)) (fun f => forall uv : U, P (f (uv))) uv0"
   where P f is a Prop defining the function that does not depend on uv
   (so the uv0 appearing does not impact the function whatsoever)
   
-  In that case the following tactic associates exemple with 
-  (fun uv => exemple) uv0 and applies f_equal to remove uv0
+  In that case the following tactic associates example with 
+  (fun uv => example) uv0 and applies f_equal to remove uv0
   then removes the ε thanks to lemma align_ε. *)
 Ltac align_ε :=
-let rec aux :=
+  let rec aux :=
     lazymatch goal with
-    | |- ?f = ε ?P ?r => 
-    apply (f_equal (fun g => g r) (x := fun _ => f)) ; 
+    | |- ?f = ε ?P ?r =>
+    apply (f_equal (fun g => g r) (x := fun _ => f)) ;
     let H := fresh "H" in
     assert (H : P (fun _ => f)) ; (* this only assertion should be enough 
                                      to solve everything in the case of 
                                      total recursive functions *)
-    [ intros
+    [ let uv := fresh "uv" in 
+      intro uv ; try clear uv
     | apply align_ε ; (* the align_ε lemma replaces a = ε P with two goals
                          P a and forall x, P x => x = a. this will only work
                          for totally defined objects *)
@@ -1052,7 +1053,7 @@ Ltac N_rec_align1 := (* only now do we assume that functions are defined recursi
             *)
         ] .
   (* if all works correctly we have two goals left, PO f and PS f.
-     PO f is often already solved, and with the right definition for f, so is PS f. *) 
+     PO f is often already solved, and in easy cases, so is PS f. *) 
   (* the following tactics do the exact same but trying to induct on the second or third parameter *)
     
 Ltac N_rec_align2 :=
@@ -1283,8 +1284,8 @@ Qed.
 Lemma MOD_def : N.modulo = (@ε (arr (prod N (prod N N)) (arr N (arr N N'))) (fun r : (prod N (prod N N)) -> N -> N -> N => forall _3087 : prod N (prod N N), forall m : N, forall n : N, @COND Prop (n = (NUMERAL 0)) (((N.div m n) = (NUMERAL 0)) /\ ((r _3087 m n) = m)) ((m = (N.add (N.mul (N.div m n) n) (r _3087 m n))) /\ (N.lt (r _3087 m n) n))) (@pair N (prod N N) (NUMERAL (BIT1 (BIT0 (BIT1 (BIT1 (BIT0 (BIT0 (BIT1 0)))))))) (@pair N N (NUMERAL (BIT1 (BIT1 (BIT1 (BIT1 (BIT0 (BIT0 (BIT1 0)))))))) (NUMERAL (BIT0 (BIT0 (BIT1 (BIT0 (BIT0 (BIT0 (BIT1 0))))))))))).
 Proof.
   cbn.
-  align_ε. (* changed the intro pattern. how bad is it ? *)
-  - apply prove_COND; intro h.
+  align_ε.
+  - intros m n. apply prove_COND; intro h.
     + rewrite h.
       split.
       * exact (N.div_0_r m).
@@ -2234,7 +2235,7 @@ Proof.
   apply ε_spec. now exists f.
 Qed.
 
-Ltac align_simple_partial :=
+Ltac partial_align_ε :=
   match goal with |- ?f = ε ?P ?r =>
     try apply (partial_align_ε1 r (fun _ => f)) ; try apply (partial_align_ε2 r (fun _ => f)) ; 
     try apply (partial_align_ε3 r (fun _ => f)) ;
@@ -2247,7 +2248,7 @@ Ltac align_simple_partial :=
    number of intros before ext l decides which variable we wish to induct on. *)
 
 Ltac list_partial_align1 := 
-  align_simple_partial ; [ auto
+  partial_align_ε ; [ auto
   | auto
   | let f' := fresh "f'" in
     let uv := fresh "uv" in
@@ -2264,7 +2265,7 @@ Ltac list_partial_align1 :=
         ] .
 
 Ltac list_partial_align2 :=
-  align_simple_partial ; [ auto
+  partial_align_ε ; [ auto
   | auto
   | let f' := fresh "f'" in
     let uv := fresh "uv" in
@@ -2281,7 +2282,7 @@ Ltac list_partial_align2 :=
         ] .
 
 Ltac list_partial_align3 :=
-  align_simple_partial ; [ auto
+  partial_align_ε ; [ auto
   | auto
   | let f' := fresh "f'" in
     let uv := fresh "uv" in
