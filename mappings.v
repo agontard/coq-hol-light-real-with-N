@@ -109,43 +109,44 @@ Ltac gobble f x :=
   clearbody g ; clear f x ;
   rename g into f.
 
-(* a function translated from HOL-Light will usually look like the following :
+(* A function translated from HOL-Light usually looks like:
 
-  "Example = ε (U -> (...)) (fun f => forall uv : U, P (f (uv))) uv0"
-  where P f is a Prop defining the function that does not depend on uv
-  (so the uv0 appearing does not impact the function whatsoever)
-  
-  In that case the following tactic associates example with 
-  (fun uv => example) uv0 and applies f_equal to remove uv0
-  then removes the ε thanks to lemma align_ε. *)
+  [ε (U -> ...) (fun g => forall uv : U, P (g uv)) uv0]
+
+  where P is a proposition defining a function that does not depend on
+  uv (unused variable). *)
+
+(* From a goal of the form [f = ε (fun g => forall uv : U, P (g uv)) uv0],
+align_ε generates two subgoals [P f] and [P f -> P f' -> f = f']. *)
 Ltac align_ε :=
   let rec aux :=
     lazymatch goal with
     | |- ?f = ε ?P ?r =>
-    apply (f_equal (fun g => g r) (x := fun _ => f)) ;
-    let H := fresh "H" in
-    assert (H : P (fun _ => f)) ; (* this only assertion should be enough 
-                                     to solve everything in the case of 
-                                     total recursive functions *)
-    [ let uv := fresh "uv" in 
-      intro uv ; try clear uv
-    | apply align_ε ; (* the align_ε lemma replaces a = ε P with two goals
-                         P a and forall x, P x => x = a. this will only work
-                         for totally defined objects *)
-      [ exact H (* we proved P f before because it will be usefull for the second goal *)
-      | let f' := fresh "f'" in
-        let uv := fresh "uv" in
-        let H' := fresh "H'" in
-        intros f' H' ; try ext uv ;
-        try specialize (H uv) ; (* remember that P starts with "forall uv" *)
-        try specialize (H' uv) ;
-        try gobble f' uv ; (* replaces f uv and f' uv with f and f',
-                              only thanks to uv not appearing anywhere *)
-        revert H H' (* reverting P f and P f' to reuse them in other tactics *)
-      ]]
+        (* replace this goal by (fun _ => f = ε ?P) *)
+        apply (f_equal (fun g => g r) (x := fun _ => f)) ;
+        (* we assume that (fun _ => f) satisfies P *)
+        let H := fresh "H" in
+        assert (H : P (fun _ => f)) ;
+        [ let uv := fresh "uv" in 
+          intro uv ; try clear uv
+        (* the proof of H is left to the user *)
+        | apply align_ε ;
+          (* replaces the goal (a = ε P) with two goals (P a) and
+          (forall x, P x => x = a). *)
+          [ exact H
+          | let f' := fresh "f'" in
+            let uv := fresh "uv" in
+            let H' := fresh "H'" in
+            intros f' H' ; try ext uv ;
+            try specialize (H uv) ; (* as P starts with "forall uv" *)
+            try specialize (H' uv) ;
+            try gobble f' uv ; (* replaces f' uv by f' since uv is not used *)
+            revert H H' (* revert P f and P f' to reuse them in other tactics *)
+        ]]
     | |- _ = ε _ => apply align_ε 
     | |- _ ?x = ε _ ?x => apply (f_equal (fun f => f x)) ; aux
-end in aux.
+    end
+  in aux.
 
 Axiom prop_ext : forall {P Q : Prop}, (P -> Q) -> (Q -> P) -> P = Q.
 
