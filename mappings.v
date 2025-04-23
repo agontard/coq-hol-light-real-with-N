@@ -109,14 +109,14 @@ Ltac gobble f x :=
   clearbody g ; clear f x ;
   rename g into f.
 
-(* A function translated from HOL-Light usually looks like:
+(* The definition of an HOL-Light function that is recursively defined
+on some inductive type usually looks like:
 
-  [ε (U -> ...) (fun g => forall uv : U, P (g uv)) uv0]
+  [ε (fun g => forall uv, P (g uv)) uv0]
 
-  where P is a proposition defining a function that does not depend on
-  uv (unused variable). *)
+  where P does not depend on uv (unused variable). *)
 
-(* From a goal of the form [f = ε (fun g => forall uv : U, P (g uv)) uv0],
+(* From a goal of the form [f = ε (fun g => forall uv, P (g uv)) uv0],
 align_ε generates two subgoals [P f] and [P f -> P f' -> f = f']. *)
 Ltac align_ε :=
   let rec aux :=
