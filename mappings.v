@@ -117,12 +117,36 @@ on some inductive type usually looks like:
   where P does not depend on uv (unused variable). *)
 
 (* From a goal of the form [f = ε (fun g => forall uv, P (g uv)) uv0],
-align_ε generates two subgoals [P f] and [P f -> P f' -> f = f']. *)
+align_ε generates two subgoals [P f] and [P f' -> f = f']. *)
 Ltac align_ε :=
   let rec aux :=
     lazymatch goal with
+    | |- ?a = ε ?P ?r =>
+        (* replace this goal by (fun _ => a = ε ?P) *)
+        apply (f_equal (fun g => g r) (x := fun _ => a)) ;
+        apply align_ε ; (* replaces the goal (a = ε P) with two goals (P a) and
+                        (forall x, P x => x = a). *)
+        [ let uv := fresh "uv" in 
+          intro uv ; try clear uv
+        (* the proof of H is left to the user *)
+        | let a' := fresh "a'" in
+          let uv := fresh "uv" in
+          let H' := fresh "H'" in
+          intros a' H' ; try ext uv ;
+          try specialize (H' uv) ; (* as P starts with "forall uv" *)
+          try gobble a' uv ; (* replaces f' uv by f' since uv is not used *)
+          revert a' H'
+        ]
+    | |- _ = ε _ => apply align_ε 
+    | |- _ ?x = ε _ ?x => apply (f_equal (fun f => f x)) ; aux
+    end
+  in aux.
+
+(* Same as align_ε, but the second subgoal generated is [P f -> P f' -> f = f']. *)
+Ltac align_ε' :=
+  let rec aux :=
+    lazymatch goal with
     | |- ?f = ε ?P ?r =>
-        (* replace this goal by (fun _ => f = ε ?P) *)
         apply (f_equal (fun g => g r) (x := fun _ => f)) ;
         (* we assume that (fun _ => f) satisfies P *)
         let H := fresh "H" in
@@ -131,17 +155,15 @@ Ltac align_ε :=
           intro uv ; try clear uv
         (* the proof of H is left to the user *)
         | apply align_ε ;
-          (* replaces the goal (a = ε P) with two goals (P a) and
-          (forall x, P x => x = a). *)
           [ exact H
           | let f' := fresh "f'" in
             let uv := fresh "uv" in
             let H' := fresh "H'" in
             intros f' H' ; try ext uv ;
-            try specialize (H uv) ; (* as P starts with "forall uv" *)
+            try specialize (H uv) ;
             try specialize (H' uv) ;
-            try gobble f' uv ; (* replaces f' uv by f' since uv is not used *)
-            revert H H' (* revert P f and P f' to reuse them in other tactics *)
+            try gobble f' uv ;
+            revert f' H H' (* revert f', P f and P f' to reuse them in other tactics *)
         ]]
     | |- _ = ε _ => apply align_ε 
     | |- _ ?x = ε _ ?x => apply (f_equal (fun f => f x)) ; aux
@@ -1029,18 +1051,19 @@ Qed.
 (* tactics to align recursive functions on N. *)
 (****************************************************************************)
 
-(* at this point, following align_ε, we have two goals : P f and P f -> P f' -> f = f' *)
+(* at this point, following align_ε', we have two goals : P f and P f -> P f' -> f = f' *)
 Ltac N_rec_align1 := (* only now do we assume that functions are defined recursively
                         and therefore P is a conjunction of two cases PO and PS*)
-  align_ε ; [ split ; auto (* since it is a conjunction, we can split *)
-  | let n:=fresh "n" in
+  align_ε' ; [ split ; auto (* since it is a conjunction, we can split *)
+  | let f' := fresh "f'" in
+    let n := fresh "n" in
     let a := fresh "x" in
     let b := fresh "x" in
     let HO := fresh "HO" in
     let HS := fresh "HS" in
     let HO' := fresh "HO'" in 
     let HS' := fresh "HS" in
-    intros (HO , HS) (HO' , HS') ; (* naming specifically each clause in H and H' *)
+    intros f' (HO , HS) (HO' , HS') ; (* naming specifically each clause in H and H' *)
     ext n ; simpl in n ; (* n will be of type N' which we may need to simplify for coq to see 
                             it is N so that induction works. *)
     match goal with n : N |- ?f n = ?f' n => 
@@ -1058,15 +1081,16 @@ Ltac N_rec_align1 := (* only now do we assume that functions are defined recursi
   (* the following tactics do the exact same but trying to induct on the second or third parameter *)
     
 Ltac N_rec_align2 :=
-  align_ε ; [ split ; auto
-  | let n:=fresh "n" in
+  align_ε' ; [ split ; auto
+  | let f' := fresh "f'" in
+    let n := fresh "n" in
     let a := fresh "x" in
     let b := fresh "x" in
     let Hnil := fresh "HO" in
     let Hcons := fresh "HS" in
     let Hnil' := fresh "HO'" in
     let Hcons' := fresh "HS" in
-    intros (HO , HS) (HO' , HS') ; ext a n ; simpl in n ;
+    intros f' (HO , HS) (HO' , HS') ; ext a n ; simpl in n ;
     match goal with n : N |- ?f a n = ?f' a n =>  
       revert n a ; apply (N.peano_rec (fun n => forall a, f a n = f' a n)) ; [ 
         intro a ;try rewrite HO ; try rewrite HO' 
@@ -1074,15 +1098,16 @@ Ltac N_rec_align2 :=
         ] .
 
 Ltac N_rec_align3 :=
-  align_ε ; [ split ; auto
-  | let n:=fresh "n" in
+  align_ε' ; [ split ; auto
+  | let f' := fresh "f'" in
+    let n := fresh "n" in
     let a := fresh "x" in
     let b := fresh "x" in
     let Hnil := fresh "HO" in
     let Hcons := fresh "HS" in
     let Hnil' := fresh "HO'" in 
     let Hcons' := fresh "HS" in
-    intros (HO , HS) (HO' , HS') ; ext a b n ; simpl in n ; 
+    intros f' (HO , HS) (HO' , HS') ; ext a b n ; simpl in n ; 
     match goal with n : N |- ?f a b n = ?f' a b n =>  
       revert n a b ; apply (N.peano_rec (fun n => forall a b, f a b n = f' a b n)) ; [ 
         intros a b ; try rewrite HO ; try rewrite HO' 
@@ -2132,19 +2157,20 @@ Require Import Coq.Lists.List.
 (* Some tactics to help automatize function alignments *)
 (****************************************************************************)
 
-(* at this state, following align_ε, we have two goals : P f and P f -> P f' -> f = f' *)
+(* at this state, following align_ε', we have two goals : P f and P f -> P f' -> f = f' *)
 
 Ltac list_rec_align1 := (* only now do we assume that functions are defined recursively
                            and therefore P is a conjunction of two cases Pnil and Pcons*)
-  align_ε ; [ split ; auto (* since it is a conjunction, we can split *)
-  | let l:=fresh "l" in
+  align_ε' ; [ split ; auto (* since it is a conjunction, we can split *)
+  | let f' := fresh "f'" in
+    let l := fresh "l" in
     let a := fresh "x" in
     let b := fresh "x" in
     let Hnil := fresh "Hnil" in
     let Hcons := fresh "Hcons" in
     let Hnil' := fresh "Hnil'" in 
     let Hcons' := fresh "Hcons'" in
-    intros (Hnil , Hcons) (Hnil' , Hcons') ; (* naming specifically each clause in H and H' *)
+    intros f' (Hnil , Hcons) (Hnil' , Hcons') ; (* naming specifically each clause in H and H' *)
     ext l ; simpl in l ; (* l will be of type list' A which we need to simplify for coq to see 
                             it is list A so that induction works. *)
     match goal with l : list _ |- _ => (* avoiding the case where there is a first parameter that
@@ -2163,15 +2189,16 @@ Ltac list_rec_align1 := (* only now do we assume that functions are defined recu
 (* the following tactics do the exact same but trying to induct on the second or third parameter *)
 
 Ltac list_rec_align2 :=
-  align_ε ; [ split ; auto
-  | let l:=fresh "l" in
+  align_ε' ; [ split ; auto
+  | let f' := fresh "f'" in
+    let l := fresh "l" in
     let a := fresh "x" in
     let b := fresh "x" in
     let Hnil := fresh "Hnil" in
     let Hcons := fresh "Hcons" in
     let Hnil' := fresh "Hnil'" in 
     let Hcons' := fresh "Hcons'" in
-    intros (Hnil , Hcons) (Hnil' , Hcons') ; ext a l ; simpl in l ; 
+    intros f' (Hnil , Hcons) (Hnil' , Hcons') ; ext a l ; simpl in l ; 
     match goal with l : list _ |- _ => 
       revert a ; induction l ; intro a ; try ext b ; [ 
         try rewrite Hnil ; try rewrite Hnil'
@@ -2179,15 +2206,16 @@ Ltac list_rec_align2 :=
         ] .
 
 Ltac list_rec_align3 :=
-  align_ε ; [ split ; auto
-  | let l:=fresh "l" in
+  align_ε' ; [ split ; auto
+  | let f' := fresh "f'" in
+    let l := fresh "l" in
     let a := fresh "x" in
     let b := fresh "x" in
     let Hnil := fresh "Hnil" in
     let Hcons := fresh "Hcons" in
     let Hnil' := fresh "Hnil'" in 
     let Hcons' := fresh "Hcons'" in
-    intros (Hnil , Hcons) (Hnil' , Hcons') ; ext a b l ; simpl in l ;
+    intros f' (Hnil , Hcons) (Hnil' , Hcons') ; ext a b l ; simpl in l ;
     match goal with l : list _ |- _ => 
       revert a b ; induction l ; intros a b ; [ 
         try rewrite Hnil ; try rewrite Hnil'
