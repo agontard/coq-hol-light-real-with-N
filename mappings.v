@@ -1912,24 +1912,12 @@ Qed.
 
 Lemma INL_def {A B : Type'} : (@inl A B) = (fun a : A => @_mk_sum A B ((fun a' : A => @CONSTR (prod A B) (NUMERAL 0) (@pair A B a' (@ε B (fun v : B => True))) (fun n : N => @BOTTOM (prod A B))) a)).
 Proof.
-  ext a. apply _dest_sum_inj. simpl.
-  match goal with [|- ?x = _] => set (r := x) end.
-  (* rewrite sym. rewrite <- axiom_12. doesn't work *)
-  unfold _mk_sum. assert (h: exists p, r = _dest_sum p).
-  exists (inl a). simpl. reflexivity.
-  generalize (ε_spec h). set (o := ε (fun p : sum' A B => _dest_sum p = r)).
-  auto.
+  ext a. symmetry. exact (axiom_11 (inl a)).
 Qed.
 
 Lemma INR_def {A B : Type'} : (@inr A B) = (fun a : B => @_mk_sum A B ((fun a' : B => @CONSTR (prod A B) (N.succ (NUMERAL N0)) (@pair A B (@ε A (fun v : A => True)) a') (fun n : N => @BOTTOM (prod A B))) a)).
 Proof.
-  ext b. apply _dest_sum_inj. simpl.
-  match goal with [|- ?x = _] => set (r := x) end.
-  (* rewrite sym. rewrite <- axiom_12. doesn't work *)
-  unfold _mk_sum. assert (h: exists p, r = _dest_sum p).
-  exists (inr(b)). simpl. reflexivity.
-  generalize (ε_spec h). set (o := ε (fun p : sum' A B => _dest_sum p = r)).
-  auto.
+  ext b. symmetry. exact (axiom_11 (inr b)).
 Qed.
 
 (****************************************************************************)
@@ -2003,24 +1991,12 @@ Proof. intros A r. apply axiom_14'. Qed.
 
 Lemma NONE_def {A : Type'} : (@None A) = (@_mk_option A (@CONSTR A (NUMERAL N0) (@ε A (fun v : A => True)) (fun n : N => @BOTTOM A))).
 Proof.
-  apply _dest_option_inj. simpl.
-  match goal with [|- ?x = _] => set (r := x) end.
-  (* rewrite <- axiom_14'. doesn't work *)
-  unfold _mk_option.
-  assert (h: exists o, @_mk_option_pred A r o). exists None. reflexivity.
-  generalize (ε_spec h).
-  set (o := ε (_mk_option_pred r)). unfold _mk_option_pred. auto.
+  symmetry. exact (axiom_13 None).
 Qed.
 
 Lemma SOME_def {A : Type'} : (@Some A) = (fun a : A => @_mk_option A ((fun a' : A => @CONSTR A (N.succ (NUMERAL N0)) a' (fun n : N => @BOTTOM A)) a)).
 Proof.
-  ext a. apply _dest_option_inj. simpl.
-  match goal with [|- ?x = _] => set (r := x) end.
-  (* rewrite <- axiom_14'. doesn't work *)
-  unfold _mk_option.
-  assert (h: exists o, @_mk_option_pred A r o). exists (Some a). reflexivity.
-  generalize (ε_spec h).
-  set (o := ε (_mk_option_pred r)). unfold _mk_option_pred. auto.
+  ext a. symmetry. exact (axiom_13 (Some a)).
 Qed.
 
 (****************************************************************************)
@@ -2120,23 +2096,12 @@ Proof. intros A r. apply axiom_16'. Qed.
 
 Lemma NIL_def {A : Type'} : (@nil A) = (@_mk_list A (@CONSTR A (NUMERAL N0) (@ε A (fun v : A => True)) (fun n : N => @BOTTOM A))).
 Proof.
-  apply _dest_list_inj. simpl.
-  match goal with [|- ?x = _] => set (r := x) end.
-  (* the sequence rewrite sym. rewrite <- axiom_16' doesn't work *)
-  unfold _mk_list.
-  assert (h: exists l, @_mk_list_pred A r l). exists nil. reflexivity.
-  generalize (ε_spec h).
-  set (l := ε (_mk_list_pred r)). unfold _mk_list_pred. auto.
+  symmetry. exact (axiom_15 nil).
 Qed.
 
 Lemma CONS_def {A : Type'} : (@cons A) = (fun a0 : A => fun a1 : list A => @_mk_list A ((fun a0' : A => fun a1' : recspace A => @CONSTR A (N.succ (NUMERAL N0)) a0' (@FCONS (recspace A) a1' (fun n : N => @BOTTOM A))) a0 (@_dest_list A a1))).
 Proof.
-  ext a l. apply _dest_list_inj. simpl.
-  match goal with [|- ?x = _] => set (r := x) end.
-  unfold _mk_list.
-  assert (h: exists l', @_mk_list_pred A r l'). exists (cons a l). reflexivity.
-  generalize (ε_spec h).
-  set (l' := ε (_mk_list_pred r)). unfold _mk_list_pred. auto.
+  ext a l. symmetry. exact (axiom_15 (cons a l)).
 Qed.
 
 Require Import Coq.Lists.List. 
