@@ -117,46 +117,47 @@ on some inductive type usually looks like:
 
   where P does not depend on uv (unused variable). *)
 
-(* From a goal of the form [f = ε (fun g => forall uv, P (g uv)) uv0],
-align_ε' generates two subgoals [P f] and [P f -> P f' -> f = f']. *)
+(* From a goal of the form [a = ε (fun a' => forall uv, P (a' uv)) uv0],
+align_ε' generates two subgoals [P a] and [forall x, P a -> P x -> a = x]. *)
 Ltac align_ε' :=
   let rec aux :=
     lazymatch goal with
-    | |- ?f = ε ?P ?r =>
-        apply (f_equal (fun g => g r) (x := fun _ => f)) ; (* Replace this goal by (fun _ => f = ε ?P) *)
-        (* We assume that (fun _ => f) satisfies P *)
-        let H := fresh "H" in
-        assert (H : P (fun _ => f)) ;
+    | |- ?a = ε _ ?r =>
+        apply (f_equal (fun g => g r) (x := fun _ => a)) ; (* Replace this goal by (fun _ => a = ε ?P) *)
+        aux ;
         [ let uv := fresh in
-          intro uv ; clear uv (* Replaces f uv by f since uv is not used *)
-        (* The proof of H is left to the user *)
-        | apply align_ε ; (* Replaces the goal (f = ε P) with two goals (P f) and
-                          (forall x, P x => x = f). *)
+          intro uv ; clear uv 
+
+        | let a' := fresh in
+          let uv := fresh in
+          let H' := fresh in
+          let H := fresh in
+          intros a' H H' ; ext uv ;
+          specialize (H uv) ; (* As P starts with "forall uv" *)
+          specialize (H' uv) ;
+          simpl ((fun _ => a) uv) in * ; (* Simplifies to a so that uv only appears in "a' uv" *)
+          gobble a' uv ;
+          revert a' H H' (* Revert a', P a and P a' to reuse them in other tactics *)
+        ]
+    | |- ?a = ε ?P => assert (H : P a); (* We assume that a satisfies P *)
+         [ idtac (* The proof of H is left to the user *)
+         | apply align_ε ; (* Replaces the goal (a = ε P) with two goals (P a) and
+                           (forall x, P x => x = a). *)
           [ exact H
-          | let f' := fresh in
-            let uv := fresh in
-            let H' := fresh in
-            intros f' H' ; ext uv ;
-            specialize (H uv) ; (* As P starts with "forall uv" *)
-            specialize (H' uv) ;
-            simpl ((fun _ => f) uv) in * ; (* Simplifies to f so that uv only appears in "f' uv" *)
-            gobble f' uv ;
-            revert f' H H' (* Revert f', P f and P f' to reuse them in other tactics *)
-        ]]
-    | |- _ = ε _ => apply align_ε 
+            | let a' := fresh in 
+              intro a'; revert a' H]]
     | |- _ ?x = ε _ ?x => apply (f_equal (fun f => f x)) ; aux
     end
   in aux.
 
-(* align_ε is the older version, that does not have hypothesis P f in the second subgoal.
+(* align_ε is the older version, that does not have hypothesis P a in the second subgoal.
    It is kept only to not break the intro patterns in older proofs. prefer using align_ε'. *)
 Ltac align_ε :=
-  align_ε' ;
-  let f' := fresh in
-  let H := fresh "H" in
-  let H' := fresh in
-  try intros f' H H' ; (* Only works when the goal was ?f = ε ?P ?r *)
-  try revert f' H'.
+  align_ε' ; [ idtac | let a' := fresh in
+    let H := fresh "H" in
+    let H' := fresh in
+    intros a' H  ;
+    revert a' ].
 
 Axiom prop_ext : forall {P Q : Prop}, (P -> Q) -> (Q -> P) -> P = Q.
 
@@ -1627,7 +1628,7 @@ Qed.
 Lemma NUMRIGHT_def : NUMRIGHT = (@ε ((prod N (prod N (prod N (prod N (prod N (prod N (prod N N))))))) -> N -> N) (fun Y : (prod N (prod N (prod N (prod N (prod N (prod N (prod N N))))))) -> N -> N => forall _17373 : prod N (prod N (prod N (prod N (prod N (prod N (prod N N)))))), forall x : Prop, forall y : N, ((NUMLEFT (NUMSUM x y)) = x) /\ ((Y _17373 (NUMSUM x y)) = y)) (@pair N (prod N (prod N (prod N (prod N (prod N (prod N N)))))) (NUMERAL (BIT0 (BIT1 (BIT1 (BIT1 (BIT0 (BIT0 (BIT1 0)))))))) (@pair N (prod N (prod N (prod N (prod N (prod N N))))) (NUMERAL (BIT1 (BIT0 (BIT1 (BIT0 (BIT1 (BIT0 (BIT1 0)))))))) (@pair N (prod N (prod N (prod N (prod N N)))) (NUMERAL (BIT1 (BIT0 (BIT1 (BIT1 (BIT0 (BIT0 (BIT1 0)))))))) (@pair N (prod N (prod N (prod N N))) (NUMERAL (BIT0 (BIT1 (BIT0 (BIT0 (BIT1 (BIT0 (BIT1 0)))))))) (@pair N (prod N (prod N N)) (NUMERAL (BIT1 (BIT0 (BIT0 (BIT1 (BIT0 (BIT0 (BIT1 0)))))))) (@pair N (prod N N) (NUMERAL (BIT1 (BIT1 (BIT1 (BIT0 (BIT0 (BIT0 (BIT1 0)))))))) (@pair N N (NUMERAL (BIT0 (BIT0 (BIT0 (BIT1 (BIT0 (BIT0 (BIT1 0)))))))) (NUMERAL (BIT0 (BIT0 (BIT1 (BIT0 (BIT1 (BIT0 (BIT1 0)))))))))))))))).
 Proof.
   cbn.
-  align_ε. (* again here, intros made *)
+  align_ε.
   - split.
     + exact (NUMLEFT_NUMSUM x y).
     + exact (NUMRIGHT_NUMSUM x y).
@@ -2254,7 +2255,7 @@ Ltac partial_align_ε :=
     try apply (partial_align_ε1 r (fun _ => f)) ; try apply (partial_align_ε2 r (fun _ => f)) ; 
     try apply (partial_align_ε3 r (fun _ => f)) end.
 
-(* The method barely varies from total_align. uv is not gobbled, 
+(* The method barely varies from total_align. uv is not gobbled,
    Hnil is now directly "f uv nil = f' uv nil".  *)
 Ltac list_partial_align1 := 
   partial_align_ε ; [ auto
