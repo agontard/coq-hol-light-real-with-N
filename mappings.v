@@ -122,6 +122,7 @@ align_ε' generates two subgoals [P a] and [forall x, P a -> P x -> a = x]. *)
 Ltac align_ε' :=
   let rec aux :=
     lazymatch goal with
+    | |- _ ?x = ε _ ?x => apply (f_equal (fun f => f x)) ; aux
     | |- ?a = ε _ ?r =>
         apply (f_equal (fun g => g r) (x := fun _ => a)) ; (* Replace this goal by (fun _ => a = ε ?P) *)
         aux ;
@@ -146,7 +147,6 @@ Ltac align_ε' :=
           [ exact H
             | let a' := fresh in 
               intro a'; revert a' H]]
-    | |- _ ?x = ε _ ?x => apply (f_equal (fun f => f x)) ; aux
     end
   in aux.
 
