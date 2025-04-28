@@ -1775,7 +1775,7 @@ Arguments BOTTOM {A}.
 Definition recspace' (A : Type') := {|type := recspace A ; el := BOTTOM|}.
 Canonical recspace'.
 
-(* Explanations for now assuming a finite ammount of recursive arguments *)
+(* Explanations, for now assuming a finite ammount of recursive arguments. *)
 
 (* Suppose you wish to define an inductive type B.
    - A is the product of the types of all external arguments in B constructors.
@@ -1920,6 +1920,34 @@ Proof.
     + intros n IHn. unfold FCONS. do 2 rewrite recursion_succ. now rewrite Hf.
 Qed.
 
+(*****************************************************************************)
+(* Tactics to automatize inductive type alignment. *)
+(*****************************************************************************)
+
+(* In general, _mk will be defined as the inverse of _dest, 
+   so we define the inverse for convenience. *)
+
+Definition finv [A B : Type'] (f : A -> B) : B -> A :=
+  fun y => ε (fun x => f x = y).
+
+(* Automatically proves that _dest is injective *)
+Ltac _dest_inj :=
+  match goal with |- forall x x', _ => let e := fresh in
+    induction x ; induction x' ; simpl ; intro e ; inversion e ; auto ;
+    repeat rewrite FCONS_inj in * ; f_equal ;
+    match goal with H : _ |- _ => now apply H end end.
+
+(* uses said injectivity to prove forall x, (_mk (_dest x)) = x *)
+Ltac _mk_dest :=
+  let x := fresh in 
+  let x' := fresh in
+  let x'' := fresh in
+  let H := fresh in
+  intro x ; match goal with |- _ (?d x) = x => assert (H : forall x' x'', d x' = d x'' -> x' = x'') ;
+  [ _dest_inj
+  | apply H ; apply (ε_spec (P := fun x' => d x' = d x)) ; now exists x
+  ] end.
+
 (****************************************************************************)
 (* Alignment of the sum type constructor. *)
 (****************************************************************************)
@@ -1933,29 +1961,18 @@ fun A B p => match p with
 | inr b => CONSTR (N.succ (NUMERAL N0)) (ε (fun _ => True) , b) (fun _ => BOTTOM)
 end.
 
-Definition _mk_sum : forall {A B : Type'}, recspace (prod A B) -> sum A B :=
-  fun A B f => ε (fun p => f = _dest_sum p).
+Definition _mk_sum {A B : Type'} := finv (@_dest_sum A B).
 
-Lemma _dest_sum_inj :
-  forall {A B : Type'} (f g : sum A B), _dest_sum f = _dest_sum g -> f = g.
-Proof.
-  intros.
-  induction f; induction g; simpl in H ; inversion H;auto.
-Qed.
-
-Lemma axiom_11 : forall {A B : Type'} (a : sum A B), (@_mk_sum A B (@_dest_sum A B a)) = a.
-Proof.
-  intros A B a. unfold _mk_sum. apply _dest_sum_inj.
-  rewrite sym. apply (@ε_spec (sum A B)). exists a. reflexivity.
-Qed.
+Lemma axiom_11 {A B : Type'} : forall (a : sum A B), (@_mk_sum A B (@_dest_sum A B a)) = a.
+Proof. _mk_dest. Qed.
 
 Lemma axiom_12 : forall {A B : Type'} (r : recspace (prod A B)), ((fun a : recspace (prod A B) => forall sum' : (recspace (prod A B)) -> Prop, (forall a' : recspace (prod A B), ((exists a'' : A, a' = ((fun a''' : A => @CONSTR (prod A B) (NUMERAL 0) (@pair A B a''' (@ε B (fun v : B => True))) (fun n : N => @BOTTOM (prod A B))) a'')) \/ (exists a'' : B, a' = ((fun a''' : B => @CONSTR (prod A B) (N.succ (NUMERAL N0)) (@pair A B (@ε A (fun v : A => True)) a''') (fun n : N => @BOTTOM (prod A B))) a''))) -> sum' a') -> sum' a) r) = ((@_dest_sum A B (@_mk_sum A B r)) = r).
 Proof.
   intros. apply prop_ext.
-  - intro h. unfold _mk_sum. rewrite sym. apply (@ε_spec (sum' A B)).
-    apply (h (fun r : recspace (prod A B) => exists x : sum' A B, r = _dest_sum x)).
+  - intro h. unfold _mk_sum , finv. apply (@ε_spec (sum' A B)).
+    apply (h (fun r : recspace (prod A B) => exists x : sum' A B, _dest_sum x = r)).
     intros. destruct H ; destruct H ; only 1 : exists (inl(x)) ; only 2 : exists (inr(x)) ;
-    simpl ; exact H. 
+    simpl ; exact (eq_sym H).
   - intro e. rewrite <- e. intros P h. apply h. destruct (_mk_sum r).
     simpl. left. exists t. reflexivity. right. exists t. reflexivity.
 Qed.
@@ -1984,25 +2001,14 @@ Definition _dest_option : forall {A : Type'}, option A -> recspace A :=
     | Some a => CONSTR (N.succ (NUMERAL N0)) a (fun _ => BOTTOM)
     end.
 
-Lemma _dest_option_inj {A : Type'} (o1 o2 : option A) :
-  _dest_option o1 = _dest_option o2 -> o1 = o2.
-Proof.
-  induction o1; induction o2; simpl ; intro e ; inversion e ; auto.
-Qed.
-
 Definition _mk_option_pred {A : Type'} (r : recspace A) : option A -> Prop :=
   fun o => _dest_option o = r.
 
 Definition _mk_option : forall {A : Type'}, (recspace A) -> option A :=
   fun A r => ε (_mk_option_pred r).
 
-Lemma axiom_13 : forall {A : Type'} (a : option A), (@_mk_option A (@_dest_option A a)) = a.
-Proof.
-  intros A o. unfold _mk_option.
-  match goal with [|- ε ?x = _] => set (Q := x); set (q := ε Q) end.
-  assert (i : exists q, Q q). exists o. reflexivity.
-  generalize (ε_spec i). fold q. unfold Q, _mk_option_pred. apply _dest_option_inj.
-Qed.
+Lemma axiom_13 {A : Type'} : forall (a : option A), (@_mk_option A (@_dest_option A a)) = a.
+Proof. _mk_dest. Qed.
 
 Definition option_pred {A : Type'} (r : recspace A) :=
   forall option' : recspace A -> Prop,
@@ -2065,20 +2071,8 @@ Definition _mk_list_pred {A : Type'} (r : recspace A) : list A -> Prop :=
 Definition _mk_list : forall {A : Type'}, (recspace A) -> list A :=
   fun A r => ε (_mk_list_pred r).
 
-Lemma _dest_list_inj :
-  forall {A : Type'} (l l' : list A), _dest_list l = _dest_list l' -> l = l'.
-Proof.
-  induction l; induction l'; simpl; intro e ; inversion e.
-  reflexivity. f_equal. apply IHl. now rewrite FCONS_inj in H1.
-Qed.
-
-Lemma axiom_15 : forall {A : Type'} (a : list A), (@_mk_list A (@_dest_list A a)) = a.
-Proof.
-  intros A l. unfold _mk_list.
-  match goal with [|- ε ?x = _] => set (L' := x); set (l' := ε L') end.
-  assert (i : exists l', L' l'). exists l. reflexivity.
-  generalize (ε_spec i). fold l'. unfold L', _mk_list_pred. apply _dest_list_inj.
-Qed.
+Lemma axiom_15 {A : Type'} : forall (a : list A), (@_mk_list A (@_dest_list A a)) = a.
+Proof. _mk_dest. Qed.
 
 Definition list_pred {A : Type'} (r : recspace A) :=
   forall list'0 : recspace A -> Prop,
