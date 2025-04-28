@@ -1717,6 +1717,10 @@ Qed.*)
 (* Alignment of recspace, the HOL-Light type used to encode inductive types. *)
 (****************************************************************************)
 
+(* recspace is basically an inductive type with one constant constructor BOTTOM
+   and one recursive constructor CONSTR : N -> A -> (N -> recspace A) -> recspace A, 
+   defined through an embedding inside N -> A -> Prop *)
+
 Definition INJN {A : Type'} := fun x : N => fun n : N => fun a : A => n = x.
 
 Lemma INJN_def {A : Type'} : (@INJN A) = (fun _17537 : N => fun n : N => fun a : A => n = _17537).
@@ -1762,29 +1766,55 @@ Proof.
   apply ZRECSPACE0. apply ZRECSPACE1. exact j.
 Qed.
 
-Definition recspace : Type' -> Type' := fun A => subtype (@ZRECSPACE0 A).
+Inductive recspace (A : Type) :=
+| BOTTOM : recspace A
+| CONSTR : N -> A -> (N -> recspace A) -> recspace A.
+Arguments CONSTR [A] _ _ _.
+Arguments BOTTOM {A}.
 
-Definition _dest_rec : forall {A : Type'}, (recspace A) -> N -> A -> Prop :=
-  fun A => dest (@ZRECSPACE0 A).
+Definition recspace' (A : Type') := {|type := recspace A ; el := BOTTOM|}.
+Canonical recspace'.
+
+(* Explanations for now assuming a finite ammount of recursive arguments *)
+
+(* Suppose you wish to define an inductive type B.
+   - A is the product of the types of all external arguments in B constructors.
+     ( Without waste, if two constructors use an argument of the same type, it won't appear twice in A. )
+     ( Any argument not appearing in a constructor will be replaced by (ε (fun => True)). )
+   - N -> recspace A will contain all recursive arguments.
+     ( Since they will only be finite, the void is filled with BOTTOM, emulating lists. )
+   - The first integer argument of CONSTR is used to index constructors.
+     ( The first one defined will be assigned 0, the second 1, etc. ) *)
+
+(* Example of the definition of list A :
+  - Defined with recspace A (for the one external argument in cons).
+  - nil is the first constructor, so nil = CONSTR 0 (ε (fun _ => True)) (fun _ -> BOTTOM).
+  - cons is the second one, so cons a l = CONSTR 1 a (FCONS l (fun _ => BOTTOM).
+    ( Where FCONS defined later emulates cons and (fun _ => BOTTOM) can be seen as nil. ) *)
+
+Fixpoint _dest_rec {A : Type'} (r : recspace A) : N -> A -> Prop :=
+  match r with
+  | BOTTOM => ZBOT
+  | CONSTR n a f => ZCONSTR n a (fun m => _dest_rec (f m)) end.
+
+Definition _mk_rec_pred {A : Type'} (P : N -> A -> Prop) :=
+  fun r => _dest_rec r = P.
 
 Definition _mk_rec : forall {A : Type'}, (N -> A -> Prop) -> recspace A :=
-  fun A => mk (@ZRECSPACE0 A).
+  fun A P => ε (_mk_rec_pred P).
 
-Lemma axiom_10 : forall {A : Type'} (r : N -> A -> Prop), (@ZRECSPACE A r) = ((@_dest_rec A (@_mk_rec A r)) = r).
-Proof. intros A r. apply dest_mk. Qed.
-
-Lemma axiom_9 : forall {A : Type'} (a : recspace A), (@_mk_rec A (@_dest_rec A a)) = a.
-Proof. intros A a. apply mk_dest. Qed.
-
-Definition BOTTOM {A : Type'} := @_mk_rec A (@ZBOT A).
-
-Lemma BOTTOM_def {A : Type'} : (@BOTTOM A) = (@_mk_rec A (@ZBOT A)).
-Proof. exact (eq_refl (@BOTTOM A)). Qed.
-
-Definition CONSTR {A : Type'} := fun n : N => fun a : A => fun f : N -> recspace A => @_mk_rec A (@ZCONSTR A n a (fun x : N => @_dest_rec A (f x))).
-
-Lemma CONSTR_def {A : Type'} : (@CONSTR A) = (fun _17591 : N => fun _17592 : A => fun _17593 : N -> recspace A => @_mk_rec A (@ZCONSTR A _17591 _17592 (fun n : N => @_dest_rec A (_17593 n)))).
-Proof. exact (eq_refl (@CONSTR A)). Qed.
+Lemma axiom_10 : forall {A : Type'} (P : N -> A -> Prop), (@ZRECSPACE A P) = ((@_dest_rec A (@_mk_rec A P)) = P).
+Proof.
+  intros A P. apply prop_ext;intro H.
+  - assert (H' : exists r, _mk_rec_pred P r). induction H. 
+    + now exists BOTTOM.
+    + exists (CONSTR c i (fun n => _mk_rec (r n))). unfold _mk_rec_pred. simpl. f_equal. 
+      ext n. exact (ε_spec (H0 n)).
+    + exact (ε_spec H').
+  - rewrite <- H. clear H. induction (_mk_rec P).
+    + exact ZRECSPACE0.
+    + now apply ZRECSPACE1.
+Qed.
 
 Lemma NUMSUM_INJ : forall b1 : Prop, forall x1 : N, forall b2 : Prop, forall x2 : N, ((NUMSUM b1 x1) = (NUMSUM b2 x2)) = ((b1 = b2) /\ (x1 = x2)).
 Proof.
@@ -1841,28 +1871,53 @@ Proof.
   rewrite Neven_double, !COND_False, NDIV_MULT. auto. lia.
 Qed.
 
-Lemma ZCONSTR_INJ {A : Type'} c1 i1 r1 c2 i2 r2 : @ZCONSTR A c1 i1 r1 = ZCONSTR c2 i2 r2 -> c1 = c2 /\ i1 = i2 /\ r1 = r2.
+Lemma _dest_rec_inj {A : Type'} : 
+  forall (r r' : recspace A), _dest_rec r = _dest_rec r' -> r = r'.
 Proof.
-  unfold ZCONSTR. intro e.
-  rewrite INJP_INJ in e. destruct e as [e1 e2].
-  rewrite INJN_INJ in e1. rewrite INJP_INJ in e2. destruct e2 as [e2 e3].
-  rewrite INJA_INJ in e2. rewrite INJF_INJ in e3. apply N.succ_inj in e1. auto.
+  induction r ; induction r' ; simpl ;
+  unfold ZBOT, ZCONSTR ; rewrite INJP_INJ ;
+  rewrite INJN_INJ ; intros (e1, e2).
+  - reflexivity.
+  - destruct (N.neq_0_succ _ e1).
+  - destruct (N.neq_succ_0 _ e1).
+  - rewrite INJP_INJ, INJF_INJ, INJA_INJ in e2. f_equal.
+    now apply N.succ_inj. now destruct e2.
+    destruct e2 as (_ , e2). ext m.
+    apply H. exact (ext_fun e2 m).
 Qed.
 
-Lemma MK_REC_INJ {A : Type'} : forall x : N -> A -> Prop, forall y : N -> A -> Prop, ((@_mk_rec A x) = (@_mk_rec A y)) -> ((@ZRECSPACE A x) /\ (@ZRECSPACE A y)) -> x = y.
+Lemma axiom_9 : forall {A : Type'} (a : recspace A), (@_mk_rec A (@_dest_rec A a)) = a.
 Proof.
-  intros x y e [hx hy]. rewrite axiom_10 in hx. rewrite axiom_10 in hy.
-  rewrite <- hx, <- hy, e. reflexivity.
+  intros A a. apply _dest_rec_inj. unfold _mk_rec, _mk_rec_pred.
+  apply (ε_spec (P := fun r : recspace A => _dest_rec r = _dest_rec a)).
+  now exists a.
 Qed.
 
-Lemma CONSTR_INJ : forall {A : Type'}, forall c1 : N, forall i1 : A, forall r1 : N -> recspace A, forall c2 : N, forall i2 : A, forall r2 : N -> recspace A, ((@CONSTR A c1 i1 r1) = (@CONSTR A c2 i2 r2)) = ((c1 = c2) /\ ((i1 = i2) /\ (r1 = r2))).
+Lemma BOTTOM_def {A : Type'} : (@BOTTOM A) = (@_mk_rec A (@ZBOT A)).
+Proof. symmetry. exact (axiom_9 BOTTOM). Qed.
+
+Lemma CONSTR_def {A : Type'} : (@CONSTR A) = (fun _17591 : N => fun _17592 : A => fun _17593 : N -> recspace A => @_mk_rec A (@ZCONSTR A _17591 _17592 (fun n : N => @_dest_rec A (_17593 n)))).
+Proof. symmetry. ext n a r. exact (axiom_9 (CONSTR n a r)). Qed.
+
+Definition FCONS {A : Type'} (a : A) (f: N -> A) (n : N) : A :=
+  N.recursion a (fun n _ => f n) n.
+
+Lemma FCONS_def {A : Type'} : @FCONS A = @ε ((prod N (prod N (prod N (prod N N)))) -> A -> (N -> A) -> N -> A) (fun FCONS' : (prod N (prod N (prod N (prod N N)))) -> A -> (N -> A) -> N -> A => forall _17460 : prod N (prod N (prod N (prod N N))), (forall a : A, forall f : N -> A, (FCONS' _17460 a f (NUMERAL N0)) = a) /\ (forall a : A, forall f : N -> A, forall n : N, (FCONS' _17460 a f (N.succ n)) = (f n))) (@pair N (prod N (prod N (prod N N))) (NUMERAL (BIT0 (BIT1 (BIT1 (BIT0 (BIT0 (BIT0 (BIT1 0)))))))) (@pair N (prod N (prod N N)) (NUMERAL (BIT1 (BIT1 (BIT0 (BIT0 (BIT0 (BIT0 (BIT1 0)))))))) (@pair N (prod N N) (NUMERAL (BIT1 (BIT1 (BIT1 (BIT1 (BIT0 (BIT0 (BIT1 0)))))))) (@pair N N (NUMERAL (BIT0 (BIT1 (BIT1 (BIT1 (BIT0 (BIT0 (BIT1 0)))))))) (NUMERAL (BIT1 (BIT1 (BIT0 (BIT0 (BIT1 (BIT0 (BIT1 0)))))))))))).
 Proof.
-  intros A c1 i1 r1 c2 i2 r2. apply prop_ext.
-  2: intros [e1 [e2 e3]]; subst; reflexivity.
-  unfold CONSTR. intro e. apply MK_REC_INJ in e. apply ZCONSTR_INJ in e.
-  destruct e as [e1 [e2 e3]]. split. auto. split. auto. ext x.
-  apply dest_inj. generalize (ext_fun e3 x). auto.
-  split; apply ZRECSPACE1; intro n. destruct (r1 n). auto. destruct (r2 n). auto.
+  total_align. intros. unfold FCONS. 
+  rewrite N.recursion_succ. reflexivity. reflexivity.
+  intros n1 n2 n12 a1 a2 a12. subst n2. subst a2. reflexivity.
+Qed.
+
+Lemma FCONS_inj [A : Type'] (a a' : A) f f' : (FCONS a f = FCONS a' f') = (a = a' /\ f = f').
+Proof.
+  apply prop_ext;intro H. split. 
+  - exact (ext_fun H 0).
+  - ext n. generalize (ext_fun H (N.succ n)). unfold FCONS.
+    now do 2 rewrite recursion_succ.
+  - destruct H as (Ha , Hf). apply fun_ext. apply N.peano_ind.
+    + exact Ha.
+    + intros n IHn. unfold FCONS. do 2 rewrite recursion_succ. now rewrite Hf.
 Qed.
 
 (****************************************************************************)
@@ -1885,10 +1940,7 @@ Lemma _dest_sum_inj :
   forall {A B : Type'} (f g : sum A B), _dest_sum f = _dest_sum g -> f = g.
 Proof.
   intros.
-  induction f; induction g; unfold _dest_sum in H; rewrite (@CONSTR_INJ (prod A B)) in H; destruct H. destruct H0.
-  apply pair_equal_spec in H0. destruct H0. rewrite H0. reflexivity.
-  discriminate. discriminate.
-  destruct H0. apply pair_equal_spec in H0. destruct H0. rewrite H2. reflexivity.
+  induction f; induction g; simpl in H ; inversion H;auto.
 Qed.
 
 Lemma axiom_11 : forall {A B : Type'} (a : sum A B), (@_mk_sum A B (@_dest_sum A B a)) = a.
@@ -1900,14 +1952,12 @@ Qed.
 Lemma axiom_12 : forall {A B : Type'} (r : recspace (prod A B)), ((fun a : recspace (prod A B) => forall sum' : (recspace (prod A B)) -> Prop, (forall a' : recspace (prod A B), ((exists a'' : A, a' = ((fun a''' : A => @CONSTR (prod A B) (NUMERAL 0) (@pair A B a''' (@ε B (fun v : B => True))) (fun n : N => @BOTTOM (prod A B))) a'')) \/ (exists a'' : B, a' = ((fun a''' : B => @CONSTR (prod A B) (N.succ (NUMERAL N0)) (@pair A B (@ε A (fun v : A => True)) a''') (fun n : N => @BOTTOM (prod A B))) a''))) -> sum' a') -> sum' a) r) = ((@_dest_sum A B (@_mk_sum A B r)) = r).
 Proof.
   intros. apply prop_ext.
-  intro h. unfold _mk_sum. rewrite sym. apply (@ε_spec (sum' A B)).
-  apply (h (fun r : recspace (prod A B) => exists x : sum' A B, r = _dest_sum x)).
-  intros. destruct H. destruct H. exists (inl(x)). simpl. exact H.
-
-  destruct H. exists (inr(x)). simpl. exact H.
-
-  intro e. rewrite <- e. intros P h. apply h. destruct (_mk_sum r).
-  simpl. left. exists t. reflexivity. right. exists t. reflexivity.
+  - intro h. unfold _mk_sum. rewrite sym. apply (@ε_spec (sum' A B)).
+    apply (h (fun r : recspace (prod A B) => exists x : sum' A B, r = _dest_sum x)).
+    intros. destruct H ; destruct H ; only 1 : exists (inl(x)) ; only 2 : exists (inr(x)) ;
+    simpl ; exact H. 
+  - intro e. rewrite <- e. intros P h. apply h. destruct (_mk_sum r).
+    simpl. left. exists t. reflexivity. right. exists t. reflexivity.
 Qed.
 
 Lemma INL_def {A B : Type'} : (@inl A B) = (fun a : A => @_mk_sum A B ((fun a' : A => @CONSTR (prod A B) (NUMERAL 0) (@pair A B a' (@ε B (fun v : B => True))) (fun n : N => @BOTTOM (prod A B))) a)).
@@ -1937,8 +1987,7 @@ Definition _dest_option : forall {A : Type'}, option A -> recspace A :=
 Lemma _dest_option_inj {A : Type'} (o1 o2 : option A) :
   _dest_option o1 = _dest_option o2 -> o1 = o2.
 Proof.
-  induction o1; induction o2; simpl; rewrite (@CONSTR_INJ A); intros [e1 [e2 e3]].
-  rewrite e2. reflexivity. discriminate. discriminate. reflexivity.
+  induction o1; induction o2; simpl ; intro e ; inversion e ; auto.
 Qed.
 
 Definition _mk_option_pred {A : Type'} (r : recspace A) : option A -> Prop :=
@@ -1977,13 +2026,11 @@ Qed.
 Lemma axiom_14' : forall {A : Type'} (r : recspace A), (option_pred r) = ((@_dest_option A (@_mk_option A r)) = r).
 Proof.
   intros A r. apply prop_ext.
-
-  intro h. apply (@ε_spec _ (_mk_option_pred r)).
-  rewrite option_eq in h. induction h.
-  exists None. reflexivity. exists (Some a''). reflexivity.
-
-  intro e. rewrite <- e. intros P h. apply h. destruct (_mk_option r); simpl.
-  right. exists t. reflexivity. left. reflexivity.
+  - intro h. apply (@ε_spec _ (_mk_option_pred r)).
+    rewrite option_eq in h. induction h.
+    exists None. reflexivity. exists (Some a''). reflexivity.
+  - intro e. rewrite <- e. intros P h. apply h. destruct (_mk_option r); simpl.
+    right. exists t. reflexivity. left. reflexivity.
 Qed.
 
 Lemma axiom_14 : forall {A : Type'} (r : recspace A), ((fun a : recspace A => forall option' : (recspace A) -> Prop, (forall a' : recspace A, ((a' = (@CONSTR A (NUMERAL N0) (@ε A (fun v : A => True)) (fun n : N => @BOTTOM A))) \/ (exists a'' : A, a' = ((fun a''' : A => @CONSTR A (N.succ (NUMERAL N0)) a''' (fun n : N => @BOTTOM A)) a''))) -> option' a') -> option' a) r) = ((@_dest_option A (@_mk_option A r)) = r).
@@ -2006,16 +2053,6 @@ Qed.
 Definition list' (A : Type') := {| type := list A; el := nil |}.
 Canonical list'.
 
-Definition FCONS {A : Type'} (a : A) (f: N -> A) (n : N) : A :=
-  N.recursion a (fun n _ => f n) n.
-
-Lemma FCONS_def {A : Type'} : @FCONS A = @ε ((prod N (prod N (prod N (prod N N)))) -> A -> (N -> A) -> N -> A) (fun FCONS' : (prod N (prod N (prod N (prod N N)))) -> A -> (N -> A) -> N -> A => forall _17460 : prod N (prod N (prod N (prod N N))), (forall a : A, forall f : N -> A, (FCONS' _17460 a f (NUMERAL N0)) = a) /\ (forall a : A, forall f : N -> A, forall n : N, (FCONS' _17460 a f (N.succ n)) = (f n))) (@pair N (prod N (prod N (prod N N))) (NUMERAL (BIT0 (BIT1 (BIT1 (BIT0 (BIT0 (BIT0 (BIT1 0)))))))) (@pair N (prod N (prod N N)) (NUMERAL (BIT1 (BIT1 (BIT0 (BIT0 (BIT0 (BIT0 (BIT1 0)))))))) (@pair N (prod N N) (NUMERAL (BIT1 (BIT1 (BIT1 (BIT1 (BIT0 (BIT0 (BIT1 0)))))))) (@pair N N (NUMERAL (BIT0 (BIT1 (BIT1 (BIT1 (BIT0 (BIT0 (BIT1 0)))))))) (NUMERAL (BIT1 (BIT1 (BIT0 (BIT0 (BIT1 (BIT0 (BIT1 0)))))))))))).
-Proof.
-  total_align. intros. unfold FCONS. 
-  rewrite N.recursion_succ. reflexivity. reflexivity.
-  intros n1 n2 n12 a1 a2 a12. subst n2. subst a2. reflexivity.
-Qed.
-
 Fixpoint _dest_list {A : Type'} l : recspace A :=
   match l with
   | nil => CONSTR (NUMERAL N0) (ε (fun _ => True)) (fun _ => BOTTOM)
@@ -2028,17 +2065,11 @@ Definition _mk_list_pred {A : Type'} (r : recspace A) : list A -> Prop :=
 Definition _mk_list : forall {A : Type'}, (recspace A) -> list A :=
   fun A r => ε (_mk_list_pred r).
 
-Lemma FCONS_0 {A : Type'} (a : A) (f : N -> A) : FCONS a f (NUMERAL N0) = a.
-Proof. reflexivity. Qed.
-
 Lemma _dest_list_inj :
   forall {A : Type'} (l l' : list A), _dest_list l = _dest_list l' -> l = l'.
 Proof.
-  induction l; induction l'; simpl; rewrite (@CONSTR_INJ A); intros [e1 [e2 e3]].
-  reflexivity. discriminate. discriminate. rewrite e2. rewrite (@IHl l'). reflexivity.
-  rewrite <- (FCONS_0 (_dest_list l) ((fun _ : N => BOTTOM))).
-  rewrite <- (FCONS_0 (_dest_list l') ((fun _ : N => BOTTOM))).
-  rewrite e3. reflexivity.
+  induction l; induction l'; simpl; intro e ; inversion e.
+  reflexivity. f_equal. apply IHl. now rewrite FCONS_inj in H1.
 Qed.
 
 Lemma axiom_15 : forall {A : Type'} (a : list A), (@_mk_list A (@_dest_list A a)) = a.
@@ -2063,32 +2094,27 @@ Inductive list_ind {A : Type'} : recspace A -> Prop :=
 Lemma list_eq {A : Type'} : @list_pred A = @list_ind A.
 Proof.
   ext r. apply prop_ext.
-  intro h. apply h. intros r' H. destruct H. rewrite H. exact list_ind0. destruct H. destruct H. destruct H. rewrite H. destruct H0.
-  assert (_dest_list nil = @CONSTR A (NUMERAL N0) (@ε A (fun v : A => True)) (fun n : N => @BOTTOM A)).
-  reflexivity. rewrite <- H0. exact (list_ind1 x nil).
-  assert (_dest_list (cons a'' l'') = @CONSTR A (N.succ (NUMERAL N0)) a'' (@FCONS (recspace A) (@_dest_list A l'') (fun n : N => @BOTTOM A))).
-  reflexivity. rewrite <- H0. exact (list_ind1 x (a'':: l'')).
-
-  induction 1; unfold list_pred; intros R h; apply h.
-  left; reflexivity.
-  right. exists a''. exists (_dest_list l''). split. reflexivity. apply h.
-  induction l''. auto. right. exists a. exists (_dest_list l''). split. reflexivity.
-  apply h. exact IHl''.
+  - intro h. apply h. intros r' H. destruct H. rewrite H. exact list_ind0. 
+    do 3 destruct H. rewrite H. destruct H0.
+    exact (list_ind1 x nil). exact (list_ind1 x (a'':: l'')).
+  - induction 1; unfold list_pred; intros R h; apply h.
+    left; reflexivity.
+    right. exists a''. exists (_dest_list l''). split. reflexivity. apply h.
+    induction l''. auto. right. exists a. exists (_dest_list l''). split. reflexivity.
+    apply h. exact IHl''.
 Qed.
 
 Lemma axiom_16' : forall {A : Type'} (r : recspace A), (list_pred r) = ((@_dest_list A (@_mk_list A r)) = r).
 Proof.
   intros A r. apply prop_ext.
-
-  intro h. apply (@ε_spec _ (_mk_list_pred r)).
-  rewrite list_eq in h. induction h.
-  exists nil. reflexivity. exists (cons a'' l''). reflexivity.
-
-  intro e. rewrite <- e. intros P h. apply h. destruct (_mk_list r).
-  left. reflexivity. right. exists t. exists (_dest_list l). split.
-  reflexivity. apply h. generalize l.
-  induction l0. left; reflexivity. right. exists a. exists (_dest_list l0). split.
-  reflexivity. apply h. exact IHl0.
+  - intro h. apply (@ε_spec _ (_mk_list_pred r)).
+    rewrite list_eq in h. induction h.
+    exists nil. reflexivity. exists (cons a'' l''). reflexivity.
+  - intro e. rewrite <- e. intros P h. apply h. destruct (_mk_list r).
+    left. reflexivity. right. exists t. exists (_dest_list l). split.
+    reflexivity. apply h. generalize l.
+    induction l0. left; reflexivity. right. exists a. exists (_dest_list l0). split.
+    reflexivity. apply h. exact IHl0.
 Qed.
 
 Lemma axiom_16 : forall {A : Type'} (r : recspace A), ((fun a : recspace A => forall list' : (recspace A) -> Prop, (forall a' : recspace A, ((a' = (@CONSTR A (NUMERAL N0) (@ε A (fun v : A => True)) (fun n : N => @BOTTOM A))) \/ (exists a0 : A, exists a1 : recspace A, (a' = ((fun a0' : A => fun a1' : recspace A => @CONSTR A (N.succ (NUMERAL N0)) a0' (@FCONS (recspace A) a1' (fun n : N => @BOTTOM A))) a0 a1)) /\ (list' a1))) -> list' a') -> list' a) r) = ((@_dest_list A (@_mk_list A r)) = r).
@@ -2631,20 +2657,7 @@ Qed.
 Lemma _dest_char_inj (a a' : ascii) : _dest_char a = _dest_char a' -> a = a'.
 Proof.
   induction a. induction a'. simpl.
-  rewrite (@CONSTR_INJ (prod Prop (prod Prop (prod Prop (prod Prop (prod Prop (prod Prop (prod Prop Prop)))))))).
-  intros [e1 [e2 e3]].
-  assert (b = b7 /\ b0 = b8 /\ b1 = b9 /\ b2 = b10 /\ b3 = b11 /\ b4 = b12 /\ b5 = b13 /\ b6 = b14).
-  apply pair_equal_spec in e2. repeat (rewrite pair_equal_spec in e2; split).
-  apply is_true_inj; apply e2.
-  apply is_true_inj; apply e2.
-  apply is_true_inj; apply e2.
-  apply is_true_inj; apply e2.
-  apply is_true_inj; apply e2.
-  apply is_true_inj; apply e2. split.
-  apply is_true_inj; apply e2.
-  apply is_true_inj; apply e2.
-  destruct H; rewrite H. destruct H0; rewrite H0. destruct H1; rewrite H1. destruct H2; rewrite H2. destruct H3; rewrite H3.
-  destruct H4; rewrite H4. destruct H5; rewrite H5. rewrite H6. reflexivity.
+  intro e. now f_equal;apply is_true_inj;inversion e.
 Qed.
 
 Lemma axiom_17 : forall (a : ascii), (_mk_char (_dest_char a)) = a.
@@ -2673,28 +2686,26 @@ Qed.
 Lemma char_eq : char_pred = char_ind.
 Proof.
   ext r. apply prop_ext.
-  intro h. apply h. intros r' [a0 [a1 [a2 [a3 [a4 [a5 [a6 [a7 e]]]]]]]].
-  rewrite e, (Prop_bool_eq a0), (Prop_bool_eq a1), (Prop_bool_eq a2),
-    (Prop_bool_eq a3), (Prop_bool_eq a4), (Prop_bool_eq a5), (Prop_bool_eq a6),
-    (Prop_bool_eq a7).
-  exact (char_ind_cons (COND a0 true false) (COND a1 true false)
-           (COND a2 true false) (COND a3 true false) (COND a4 true false)
-           (COND a5 true false) (COND a6 true false) (COND a7 true false)).
-  induction 1. unfold char_pred. intros R h. apply h.
-  exists a0. exists a1. exists a2. exists a3. exists a4. exists a5. exists a6. exists a7. reflexivity.
+  - intro h. apply h. intros r' [a0 [a1 [a2 [a3 [a4 [a5 [a6 [a7 e]]]]]]]].
+    rewrite e, (Prop_bool_eq a0), (Prop_bool_eq a1), (Prop_bool_eq a2),
+      (Prop_bool_eq a3), (Prop_bool_eq a4), (Prop_bool_eq a5), (Prop_bool_eq a6),
+      (Prop_bool_eq a7).
+    exact (char_ind_cons (COND a0 true false) (COND a1 true false)
+       (COND a2 true false) (COND a3 true false) (COND a4 true false)
+       (COND a5 true false) (COND a6 true false) (COND a7 true false)).
+  - induction 1. unfold char_pred. intros R h. apply h.
+    exists a0. exists a1. exists a2. exists a3. exists a4. exists a5. exists a6. exists a7. reflexivity.
 Qed.
 
 Lemma axiom_18' : forall (r : recspace (prod Prop (prod Prop (prod Prop (prod Prop (prod Prop (prod Prop (prod Prop Prop)))))))),
 char_pred r = ((_dest_char (_mk_char r)) = r).
 Proof.
   intro r. apply prop_ext.
-
-  intro h. apply (@ε_spec _ (_mk_char_pred r)).
-  rewrite char_eq in h. induction h. exists (Ascii a0 a1 a2 a3 a4 a5 a6 a7). reflexivity.
-
-  intro e. rewrite <- e. intros P h. apply h. destruct (_mk_char r); simpl.
-  exists (is_true b). exists (is_true b0). exists (is_true b1). exists (is_true b2). exists (is_true b3). exists (is_true b4). exists (is_true b5). exists (is_true b6).
-  reflexivity.
+  - intro h. apply (@ε_spec _ (_mk_char_pred r)).
+    rewrite char_eq in h. induction h. exists (Ascii a0 a1 a2 a3 a4 a5 a6 a7). reflexivity.
+  - intro e. rewrite <- e. intros P h. apply h. destruct (_mk_char r); simpl.
+    exists (is_true b). exists (is_true b0). exists (is_true b1). exists (is_true b2). exists (is_true b3). exists (is_true b4). exists (is_true b5). exists (is_true b6).
+    reflexivity.
 Qed.
 
 Lemma axiom_18 : forall (r : recspace (prod Prop (prod Prop (prod Prop (prod Prop (prod Prop (prod Prop (prod Prop Prop)))))))), ((fun a : recspace (prod Prop (prod Prop (prod Prop (prod Prop (prod Prop (prod Prop (prod Prop Prop))))))) => forall char' : (recspace (prod Prop (prod Prop (prod Prop (prod Prop (prod Prop (prod Prop (prod Prop Prop)))))))) -> Prop, (forall a' : recspace (prod Prop (prod Prop (prod Prop (prod Prop (prod Prop (prod Prop (prod Prop Prop))))))), (exists a0 : Prop, exists a1 : Prop, exists a2 : Prop, exists a3 : Prop, exists a4 : Prop, exists a5 : Prop, exists a6 : Prop, exists a7 : Prop, a' =
