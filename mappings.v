@@ -103,19 +103,21 @@ Proof.
   exists a. apply ha.
 Qed.
 
-Ltac gobble f uv := (* Suppose uv only appears as part of "f uv" and is otherwise unused,
-                       gobble f uv rewrites f uv as f and removes uv from the context. *)
-  let g := fresh in
-  set (g := f uv) in * ;
-  clearbody g ; clear f uv ;
-  rename g into f.
-
 (* The definition of an HOL-Light function that is recursively defined
 on some inductive type usually looks like:
 
   [ε (fun g => forall uv, P (g uv)) uv0]
 
   where P does not depend on uv (unused variable). *)
+
+(* [gobble f uv] replaces the occurrences of [f uv] by a new symbol
+named [f] too and removes [uv] from the context, assuming that [f uv]
+does not actually depends on [uv]. *)
+Ltac gobble f uv :=
+  let g := fresh in
+  set (g := f uv) in * ;
+  clearbody g ; clear f uv ;
+  rename g into f.
 
 (* From a goal of the form [a = ε (fun a' => forall uv, P (a' uv)) uv0],
 align_ε' generates two subgoals [P a] and [forall x, P a -> P x -> a = x]. *)
@@ -124,7 +126,8 @@ Ltac align_ε' :=
     lazymatch goal with
     | |- _ ?x = ε _ ?x => apply (f_equal (fun f => f x)) ; aux
     | |- ?a = ε _ ?r =>
-        apply (f_equal (fun g => g r) (x := fun _ => a)) ; (* Replace this goal by (fun _ => a = ε ?P) *)
+        (* Replace the goal by (fun _ => a = ε ?P) *)
+        apply (f_equal (fun g => g r) (x := fun _ => a)) ;
         aux ;
         [ let uv := fresh in
           intro uv ; clear uv 
@@ -134,30 +137,31 @@ Ltac align_ε' :=
           let H' := fresh in
           let H := fresh in
           intros a' H H' ; ext uv ;
-          specialize (H uv) ; (* As P starts with "forall uv" *)
+          specialize (H uv) ; (* As [P] starts with [forall uv] *)
           specialize (H' uv) ;
-          simpl ((fun _ => a) uv) in * ; (* Simplifies to a so that uv only appears in "a' uv" *)
+          simpl ((fun _ => a) uv) in * ; (* Simplifies to [a] so that [uv] only appears in [a' uv] *)
           gobble a' uv ;
-          revert a' H H' (* Revert a', P a and P a' to reuse them in other tactics *)
+          revert a' H H' (* Revert [a'], [P a] and [P a'] to reuse them in other tactics *)
         ]
-    | |- ?a = ε ?P => assert (H : P a); (* We assume that a satisfies P *)
+    | |- ?a = ε ?P => assert (H : P a); (* We assume that [a] satisfies [P] *)
          [ idtac (* The proof of H is left to the user *)
-         | apply align_ε ; (* Replaces the goal (a = ε P) with two goals (P a) and
-                           (forall x, P x => x = a). *)
+         | apply align_ε ; (* Replaces the goal [a = ε P] with two goals [P a] and
+                           [forall x, P x => x = a]. *)
           [ exact H
             | let a' := fresh in 
               intro a'; revert a' H]]
     end
   in aux.
 
-(* align_ε is the older version, that does not have hypothesis P a in the second subgoal.
-   It is kept only to not break the intro patterns in older proofs. prefer using align_ε'. *)
+(* [align_ε] is the same as [align_ε'] except that, in the 2nd
+generated subgoal, the assumption [P a] is moved to the context. *)
 Ltac align_ε :=
-  align_ε' ; [ idtac | let a' := fresh in
+  align_ε' ;
+  [ idtac
+  | let x := fresh in
     let H := fresh "H" in
-    let H' := fresh in
-    intros a' H  ;
-    revert a' ].
+    intros x H ;
+    revert x ].
 
 Axiom prop_ext : forall {P Q : Prop}, (P -> Q) -> (Q -> P) -> P = Q.
 
@@ -1040,10 +1044,10 @@ Qed.
 (* tactics to align recursive functions on N. *)
 (****************************************************************************)
 
-  (* N_rec_alignk for k between 1 and 3 replaces a goal of the form 
+(* N_rec_alignk for k between 1 and 3 replaces a goal of the form 
      f = ε P uv with two goals PO f and PS f whenever P = PO /\ PS
-     totally defines the function by peano recursion on the kth argument *)
-  (* These tactics only work for functions with 3 or less arguments. *)
+   totally defines the function by peano recursion on the kth argument. *)
+(* These tactics only work for functions with 3 or less arguments. *)
 
 Ltac N_rec_align1 :=
   align_ε' ; (* At this state, we have two goals : P f and P f -> P f' -> f = f'.
@@ -1059,19 +1063,19 @@ Ltac N_rec_align1 :=
     let HO' := fresh in
     let HS' := fresh in
     let IHn := fresh in
-    intros f' (HO , HS) (HO' , HS') ; (* naming specifically each clause in H and H' *)
+    intros f' (HO , HS) (HO' , HS') ; (* Naming specifically each clause in H and H'. *)
     ext n ; match goal with |- ?f n = f' n => 
       revert n ; apply (N.peano_rec (fun n => (f n = f' n))) ; try intros n IHn ;
       try ext a ; try ext b ; [
-        rewrite HO ; rewrite HO' (* f 0 and f' 0 are replaced with the same value. Insures that we are 
-                                      inducting on the correct variable otherwise rewriting would fail *)
+        rewrite HO ; rewrite HO' (* f 0 and f' 0 are replaced with the same value. This ensures that we are inducting on the correct variable otherwise rewriting would fail. *)
       | rewrite HS ; rewrite HS' ; try rewrite <- IHn (* Same as above. *)
       ] ; auto end
         ] .
-  (* if all works correctly we have two goals left, PO f and PS f.
+  (* If all works correctly we have two goals left, PO f and PS f.
      PO f is often already solved, and in easy cases, so is PS f. *) 
-  (* N_rec_align2 and N_rec_align3 are very similar *)
-    
+
+(* N_rec_align2 and N_rec_align3 are very similar. *)
+
 Ltac N_rec_align2 :=
   align_ε' ; [ split ; auto
   | let f' := fresh in
