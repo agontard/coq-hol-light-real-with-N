@@ -1722,7 +1722,7 @@ Qed.*)
 (****************************************************************************)
 
 (* recspace is basically an inductive type with one constant constructor BOTTOM
-   and one recursive constructor CONSTR : N -> A -> (N -> recspace A) -> recspace A, 
+   and one recursive constructor CONSTR : N -> A -> (N -> recspace A) -> recspace A,
    defined through an embedding inside M := N -> A -> Prop.
    INJN, INJA and INJF embed N, A and N -> M inside M,
    which, together with INJP embedding M*M inside M, allows to embed 
@@ -1782,14 +1782,16 @@ Arguments BOTTOM {A}.
 Definition recspace' (A : Type') := {|type := recspace A ; el := BOTTOM|}.
 Canonical recspace'.
 
-(* Explanations, for now assuming a finite ammount of recursive arguments. *)
+(* Explanations, for now assuming simple recursive arguments. *)
 
 (* Suppose you wish to define an inductive type B.
    - A is the product of the types of all external arguments in B constructors.
      ( Without waste, if two constructors use an argument of the same type, it won't appear twice in A. )
      ( Any argument not appearing in a constructor will be replaced by (ε (fun => True)). )
+     ( If no constructor has external arguments then A is Prop by default, with only (ε (fun => True))
+       appearing )
    - N -> recspace A will contain all recursive arguments.
-     ( Since they will only be finite, the void is filled with BOTTOM, emulating lists. )
+     ( With only a finit amount, the void is filled with BOTTOM, emulating lists. )
    - The first integer argument of CONSTR is used to index constructors.
      ( The first one defined will be assigned 0, the second 1, etc. ) *)
 
@@ -1823,6 +1825,8 @@ Proof.
     + now apply ZRECSPACE1.
 Qed.
 
+(* For axiom_9 we need to prove injectivity of _dest_rec, which requires to prove 
+   injectivity of every embeddings involved  *)
 Lemma NUMSUM_INJ : forall b1 : Prop, forall x1 : N, forall b2 : Prop, forall x2 : N, ((NUMSUM b1 x1) = (NUMSUM b2 x2)) = ((b1 = b2) /\ (x1 = x2)).
 Proof.
   intros b1 x1 b2 x2. apply prop_ext. 2: intros [e1 e2]; subst; reflexivity.
@@ -1931,30 +1935,78 @@ Qed.
 (* Tactics to automatize inductive type alignment. *)
 (*****************************************************************************)
 
-(* In general, _mk will be defined as the inverse of _dest, 
-   so we define the inverse for convenience. *)
+(* In this section, we suppose that we wish to align a HOL_Light inductive definition to a
+   coq one, currently only in the case of constructors with finite ammounts of recursive calls.
+   In simple cases (Same ammount of constructors with same arguments), the following 
+   tactics allow to fully automatize the proofs. *)
+
+(* Let this also serve as a tutorial on how to map a HOL-Light type T in general.
+
+   - Once file.ml has been translated with hol2dk, 
+     search for Axioms in file_terms.v. You should find axioms,
+     usually named _mk_T and _dest_T, with type recspace A -> T and
+     T -> recspace A respectively for some A.
+
+   - In the mappings file, first define the correct coq inductive type if it does not exist,
+     then define _dest_T yourself recursively.
+     > To know how you should define it, look at the definitions after axioms _mk_T and _dest_t
+       in T_terms.v. They should look like :
+       "Definition _123456 := fun (...) => _mk_T [...]" where _123456 (for example) is simply a temporary name
+       for a constructor C, replaced soon after with "Definition C := _123456".
+       _dest_T C (...) should then have value [...].
+
+    - You can then define _mk_t := finv _dest_t,
+      where finv is the inverse thanks to the following definition : *)
 
 Definition finv [A B : Type'] (f : A -> B) : B -> A :=
   fun y => ε (fun x => f x = y).
 
-(* Automatically proves that _dest is injective *)
+(* - Then state the following Lemma (you can name it however you like) :
+     Lemma _mk_dest_T : forall x, _mk_T (_dest_T x) = x.
+     In simple cases, tactic _mk_rest_rec below will automatically prove it.
+     Otherwise, it means that tactic _dest_inj has failed,
+     leaving you to prove injectivity of _dest_T.
+     In that case, adapting the idea of _dest_inj to your type should work.
+      *)
+
+(* _dest_inj proves that _dest is injective by double induction.
+   Fails when the default induction principle doesn't suit the type or
+   is a bit more elaborate (like if T is defined with recursive list T calls) *)
 Ltac _dest_inj :=
   match goal with |- forall x x', _ => let e := fresh in
-    induction x ; induction x' ; simpl ; intro e ; inversion e ; auto ;
-    repeat rewrite FCONS_inj in * ; f_equal ;
-    match goal with H : _ |- _ => now apply H end end.
+    induction x ; induction x' ; simpl ; intro e ;
+    (* e is of the form "CONSTR n a f = CONSTR n' a' f'", so inversion
+       gives hypotheses n=n' , a=a' and f=f'. *)
+    inversion e ; auto ;
+    repeat rewrite FCONS_inj in * ; (* f and f' should represent lists of recursive calls
+                                       so we transform their equality into equality of
+                                       each recursive call (so of the form
+                                       "et : _dest_T t = _dest_T t") *)
+    f_equal ;
+    match goal with IH : _ |- _ => now apply IH (* trying to apply the
+                                                   induction hypothesis blindly to prove 
+                                                   t = t' from et *)
+    end end.
 
-(* uses said injectivity to prove forall x, (_mk (_dest x)) = x *)
+(* As long as _mk_T is defined as finv _dest_T, _mk_dest_rec will
+   transform a goal of the form forall x, (_mk_T (_dest_T x)) = x into
+   a goal stating injectivity of _dest_T, then try to apply _dest_inj. *)
 Ltac _mk_dest_rec :=
   let x := fresh in 
   let x' := fresh in
   let x'' := fresh in
   let H := fresh in
-  intro x ; match goal with |- _ (?d x) = x => assert (H : forall x' x'', d x' = d x'' -> x' = x'') ;
-  [ _dest_inj
-  | apply H ; apply (ε_spec (P := fun x' => d x' = d x)) ; now exists x
-  ] end.
+  intro x ; match goal with |- _ (?dest x) = x => 
+    assert (H : forall x' x'', dest x' = dest x'' -> x' = x'') ;
+    [ try _dest_inj
+    | apply H ; apply (ε_spec (P := fun x' => dest x' = dest x)) ; now exists x
+      ] end.
 
+(* _dest_mk_rec is only useful when you wish to prove that some
+   definitional predicate P x for the subset of recspace A representing T
+   is equivalent to _dest_T (_mk_T x) = x.
+   finv_inv first states that the above equality is equivalent to x being in the
+   image of _dest_T, meaning that proving P y <-> exists x, _dest_T x = y is enough. *)
 Lemma finv_inv [A B : Type'] (f : A -> B) : forall (P : B -> Prop) (y : B), 
   (P y -> exists x, f x = y) -> ((exists x, f x = y) -> P y) -> P y = (f (finv f y) = y).
 Proof.
@@ -1965,25 +2017,22 @@ Proof.
     + now exists (finv f y).
 Qed.
 
-Ltac hyp_simpl := 
-  let rec hyp_simpl' :=
-    lazymatch goal with 
-    | H : _ \/ _ |- _ => destruct H ; try hyp_simpl'
-    | H : exists _, _ |- _ => let x := fresh "x" in
-      destruct H as (x,H) ; try hyp_simpl' 
-    | H : _ /\ _ |- _ => let H' := fresh "H" in
-      destruct H as (H,H') ; try hyp_simpl'
-      end
-  in hyp_simpl'.
-
+(* apply finv_inv then splits into cases for each constructor. *)
 Ltac _dest_mk_rec :=
   let H := fresh in 
   let x := fresh "x" in 
   apply finv_inv ; intro H ;
-  [ apply H ; clear H ; intros x H ;
-    try hyp_simpl ; rewrite H ;
+  [ apply H ; (* P y states that to prove any P' y, one only has to prove
+                 P' x' for all x' built from the constructors (top down construction).
+                 so we apply it to our goal and then use firstorder to break the hypothesis
+                 into clauses of equality with each constructor, rewrite it,
+                 then remove the hypothesis and we are only left with choosing
+                 the correct construtor to replace x with. *)
+    clear H ; intros x H ; 
+    firstorder ; rewrite H ;
     clear H ; simpl in *
   | let x := fresh "x" in
+    (* simply inducting over x such that _dest_ x = y. *)
     destruct H as (x,H) ; rewrite <- H ; clear H ;
     induction x ; let P := fresh in
     let H' := fresh in
@@ -2130,7 +2179,7 @@ Proof.
   ext a l. symmetry. exact (axiom_15 (cons a l)).
 Qed.
 
-Require Import Coq.Lists.List. 
+Require Import Coq.Lists.List.
 
 (****************************************************************************)
 (* Some tactics to help automatize function alignments *)
