@@ -1944,6 +1944,7 @@ Qed.
    In simple cases (Same ammount of constructors with same arguments), the following 
    tactics allow to fully automatize the proofs. *)
 
+Section Inductive_type_alignment.
 (* Let this also serve as a tutorial on how to map a HOL-Light type T in general.
 
    - Once file.ml has been translated with hol2dk, 
@@ -1976,6 +1977,7 @@ Definition finv [A B : Type'] (f : A -> B) : B -> A :=
 (* _dest_inj proves that _dest is injective by double induction.
    Fails when the default induction principle doesn't suit the type or
    is a bit more elaborate (like if T is defined with recursive list T calls) *)
+
 Ltac _dest_inj :=
   match goal with |- forall x x', _ => let e := fresh in
     induction x ; induction x' ; simpl ; intro e ;
@@ -2006,10 +2008,22 @@ Ltac _mk_dest_rec :=
     | apply H ; apply (ε_spec (P := fun x' => dest x' = dest x)) ; now exists x
       ] end.
 
+(* - Finally, prove the definition of all constructors ( the lemmas _123456_def and C_def
+     right under their definition in T_terms.v, replacing them with the new definition ).
+     Here is the proof that will work for all of them :
+     " Proof.
+         ext (args)." replaces |- C = _mk_T [...] with (args) |- C (args) = _mk_T [...] (args),
+                      only for non constant constructors.
+     "   symmetry. exact (_mk_dest_T (C (args)))." *)
+
+End Inductive_type_alignment.
+
 (* _dest_mk_rec is only useful when you wish to prove that some
    definitional predicate P x for the subset of recspace A representing T
-   is equivalent to _dest_T (_mk_T x) = x.
-   finv_inv first states that the above equality is equivalent to x being in the
+   is equivalent to _dest_T (_mk_T x) = x. It would seem that is is only required for a
+   few basic types. *)
+
+(* finv_inv first states that the above equality is equivalent to x being in the
    image of _dest_T, meaning that proving P y <-> exists x, _dest_T x = y is enough. *)
 Lemma finv_inv [A B : Type'] (f : A -> B) : forall (P : B -> Prop) (y : B), 
   (P y -> exists x, f x = y) -> ((exists x, f x = y) -> P y) -> P y = (f (finv f y) = y).
