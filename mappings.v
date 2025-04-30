@@ -1936,7 +1936,7 @@ Proof.
 Qed.
 
 (*****************************************************************************)
-(* Tactics to automatize inductive type alignment. *)
+(* Tactics to automatize inductive type alignment in most cases. *)
 (*****************************************************************************)
 
 (* In this section, we suppose that we wish to align a HOL_Light inductive definition to a
@@ -1944,7 +1944,6 @@ Qed.
    In simple cases (Same ammount of constructors with same arguments), the following 
    tactics allow to fully automatize the proofs. *)
 
-Section Inductive_type_alignment.
 (* Let this also serve as a tutorial on how to map a HOL-Light type T in general.
 
    - Once file.ml has been translated with hol2dk, 
@@ -2016,7 +2015,9 @@ Ltac _mk_dest_rec :=
                       only for non constant constructors.
      "   symmetry. exact (_mk_dest_T (C (args)))." *)
 
-End Inductive_type_alignment.
+(*****************************************************************************)
+(* Tactics for specific cases. *)
+(*****************************************************************************)
 
 (* _dest_mk_rec is only useful when you wish to prove that some
    definitional predicate P x for the subset of recspace A representing T
