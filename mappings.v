@@ -2204,18 +2204,6 @@ Require Import Coq.Lists.List.
 (* Some tactics to help automatize function alignments *)
 (****************************************************************************)
 
-Ltac comb_hyp :=
-  let rec comb_hyp' :=
-    (only 1 : match goal with
-    | H : _ /\ _, H' : _ /\ _, IH : _ |- _ => let e := fresh in
-      let e' := fresh in
-      destruct H as (e , H) ; destruct H' as (e' , H') ;
-      rewrite e ; rewrite e' ; clear e ; clear e' ; now try rewrite <- IH
-    | H : _, H' : _, IH : _ |- _ =>
-      rewrite H ; rewrite H' ; now try rewrite <- IH end) ;
-    try comb_hyp'
-  in comb_hyp'.
-
 Ltac total_align1 :=
   align_ε' ; [ firstorder
   | let f' := fresh in
@@ -2229,8 +2217,8 @@ Ltac total_align1 :=
     intros f' H H' ; ext r ; induction r ;
     try ext a; try ext b ; try ext c ; try ext d ;
     firstorder ; repeat match goal with
-    H : _ |- _ => try rewrite H ; clear H end ; 
-    reflexivity ].
+    H : _ |- _ => rewrite H ; clear H end ; 
+    auto ].
     
 Ltac total_align2 :=
   align_ε' ; [ firstorder
@@ -2246,7 +2234,7 @@ Ltac total_align2 :=
     revert a ; induction r ; intro a ; try ext b ;
     try ext c ; try ext d ;
     firstorder ; repeat match goal with
-    H : ?P |- _ => try rewrite H ; clear H end ; reflexivity ].
+    H : ?P |- _ => rewrite H ; clear H end ; auto ].
 
 Ltac total_align3 :=
   align_ε' ; [ firstorder
@@ -2262,7 +2250,7 @@ Ltac total_align3 :=
     revert a b ; induction r ; intros a b ;
     try ext c ; try ext d ;
     firstorder ; repeat match goal with
-    H : _ |- _ => try rewrite H ; clear H end ; reflexivity ].
+    H : _ |- _ => rewrite H ; clear H end ; auto ].
 
 Ltac total_align4 :=
   align_ε' ; [ firstorder
@@ -2278,7 +2266,7 @@ Ltac total_align4 :=
     revert a b c ; induction r ; intros a b c ;
     try ext d ; firstorder ;
     repeat match goal with
-    H : _ |- _ => try rewrite H ; clear H end ; reflexivity ].
+    H : _ |- _ => rewrite H ; clear H end ; auto ].
 
 Ltac total_align5 :=
   align_ε' ; [ firstorder
@@ -2293,7 +2281,7 @@ Ltac total_align5 :=
     intros f' H H' ; ext a b c ; ext d r ;
     revert a b c d ; induction r ; intros a b c d ;
     firstorder ; repeat match goal with
-    H : _ |- _ => try rewrite H ; clear H end ; reflexivity ].
+    H : _ |- _ => rewrite H ; clear H end ; auto ].
 
 Ltac total_align :=
   try total_align1 ;
