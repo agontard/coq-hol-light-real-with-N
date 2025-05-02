@@ -2204,8 +2204,15 @@ Require Import Coq.Lists.List.
 (* Some tactics to help automatize function alignments *)
 (****************************************************************************)
 
+Ltac full_split :=
+  let rec full_split' :=
+    match goal with H : _ /\ _ |- _ =>
+      let H' := fresh in destruct H as (H , H') ;
+        try full_split' end in
+  full_split'.
+
 Ltac total_align1 :=
-  align_ε' ; [ firstorder
+  align_ε' ; [ repeat split ; intros ; auto
   | let f' := fresh in
     let r := fresh in
     let a := fresh in
@@ -2216,12 +2223,12 @@ Ltac total_align1 :=
     let H' := fresh in
     intros f' H H' ; ext r ; induction r ;
     try ext a; try ext b ; try ext c ; try ext d ;
-    firstorder ; repeat match goal with
-    H : _ |- _ => rewrite H ; clear H end ; 
+    full_split ; repeat match goal with
+    H : _ |- _ => rewrite H ; clear H end ;
     auto ].
     
 Ltac total_align2 :=
-  align_ε' ; [ firstorder
+  align_ε' ; [ repeat split ; intros ; auto
   | let f' := fresh in
     let r := fresh in
     let a := fresh in
@@ -2233,11 +2240,11 @@ Ltac total_align2 :=
     intros f' H H' ; ext a r ;
     revert a ; induction r ; intro a ; try ext b ;
     try ext c ; try ext d ;
-    firstorder ; repeat match goal with
+    full_split ; repeat match goal with
     H : ?P |- _ => rewrite H ; clear H end ; auto ].
 
 Ltac total_align3 :=
-  align_ε' ; [ firstorder
+  align_ε' ; [ repeat split ; intros ; auto
   | let f' := fresh in
     let r := fresh in
     let a := fresh in
@@ -2249,11 +2256,11 @@ Ltac total_align3 :=
     intros f' H H' ; ext a b r ;
     revert a b ; induction r ; intros a b ;
     try ext c ; try ext d ;
-    firstorder ; repeat match goal with
+    full_split ; repeat match goal with
     H : _ |- _ => rewrite H ; clear H end ; auto ].
 
 Ltac total_align4 :=
-  align_ε' ; [ firstorder
+  align_ε' ; [ repeat split ; intros ; auto
   | let f' := fresh in
     let r := fresh in
     let a := fresh in
@@ -2264,12 +2271,12 @@ Ltac total_align4 :=
     let H' := fresh in
     intros f' H H' ; ext a b c ; ext r ;
     revert a b c ; induction r ; intros a b c ;
-    try ext d ; firstorder ;
+    try ext d ; full_split ;
     repeat match goal with
     H : _ |- _ => rewrite H ; clear H end ; auto ].
 
 Ltac total_align5 :=
-  align_ε' ; [ firstorder
+  align_ε' ; [ repeat split ; intros ; auto
   | let f' := fresh in
     let r := fresh in
     let a := fresh in
@@ -2280,7 +2287,7 @@ Ltac total_align5 :=
     let H' := fresh in
     intros f' H H' ; ext a b c ; ext d r ;
     revert a b c d ; induction r ; intros a b c d ;
-    firstorder ; repeat match goal with
+    full_split ; repeat match goal with
     H : _ |- _ => rewrite H ; clear H end ; auto ].
 
 Ltac total_align :=
