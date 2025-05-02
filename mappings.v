@@ -143,7 +143,8 @@ Ltac align_ε' :=
           gobble a' uv ;
           revert a' H H' (* Revert [a'], [P a] and [P a'] to reuse them in other tactics *)
         ]
-    | |- ?a = ε ?P => assert (H : P a); (* We assume that [a] satisfies [P] *)
+    | |- ?a = ε ?P => let H := fresh in
+         assert (H : P a); (* We assume that [a] satisfies [P] *)
          [ idtac (* The proof of H is left to the user *)
          | apply align_ε ; (* Replaces the goal [a = ε P] with two goals [P a] and
                            [forall x, P x => x = a]. *)
