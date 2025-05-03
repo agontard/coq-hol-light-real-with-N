@@ -2191,8 +2191,8 @@ Ltac breakgoal H :=
     match goal with
     | |- _ \/ _ => left + right ; breakgoal'
     | x : ?T |- exists _ : ?T, _ => exists x ; breakgoal'
-    | |- _ /\ _ => split ; [reflexivity | try apply H ; try now apply H ; try assumption ]
-    | |- _ => try apply H ; try assumption ; reflexivity
+    | |- _ /\ _ => split ; [reflexivity | (try apply H) ; auto ; try assumption ]
+    | |- _ => (try now apply H) ; try assumption ; reflexivity
     end
   in breakgoal'.
 
