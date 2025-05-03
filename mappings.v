@@ -2015,7 +2015,7 @@ Ltac _mk_dest_rec :=
   intro x ; match goal with |- _ (?dest x) = x => 
     assert (H : forall x' x'', dest x' = dest x'' -> x' = x'') ;
     [ try _dest_inj
-    | apply H ; apply (ε_spec (P := fun x' => dest x' = dest x)) ; now exists x
+    | apply H ; apply (ε_spec (P := fun x' => dest x' = dest x)) ; now exists x 
       ] end.
 
 (* - Finally, prove the definition of all constructors ( the lemmas _123456_def and C_def
@@ -2215,7 +2215,8 @@ Require Import Coq.Lists.List.
 (* Some tactics to help automatize function alignments *)
 (****************************************************************************)
 
-Ltac full_split :=
+(* simply splitting everything, a lot faster than going brutally with firstorder *)
+Ltac full_split := 
   let rec full_split' :=
     match goal with H : _ /\ _ |- _ =>
       let H' := fresh in destruct H as (H , H') ;
@@ -2223,7 +2224,12 @@ Ltac full_split :=
   full_split'.
 
 Ltac total_align1 :=
-  align_ε' ; [ repeat split ; intros ; auto
+  align_ε' ; (* At this state, we have two goals : [P f] and [P f -> P f' -> f = f'].
+                We now assume that [P] is of the form
+                [Q1 g C1 = ... /\ Q2 g C2 = ... /\ ... /\ Qn g Cn = ...]
+                where the Ci are the constructors of the type and
+                the Qi are universal quantifications over other arguments and subterms of the Ci. *)
+  [ repeat split ; intros ; auto 
   | let f' := fresh in
     let r := fresh in
     let a := fresh in
@@ -2232,12 +2238,22 @@ Ltac total_align1 :=
     let d := fresh in
     let H := fresh in
     let H' := fresh in
-    intros f' H H' ; ext r ; induction r ;
+    intros f' H H' ; ext r ; induction r ; 
     try ext a; try ext b ; try ext c ; try ext d ;
-    full_split ; repeat match goal with
+    full_split ; (* with the correct induction principle, we have one case per clause,
+                    we can replace [f] and [f']'s values with the corresponding 
+                    clause in [P] (that we have split). By also rewriting all induction hypotheses,
+                    reflexivity should do the work.
+                    For more complex types, it is possible to try and adapt this tactic
+                    to specify how the induction should be used (if it is not just a rewrite). *)
+    repeat match goal with
     H : _ |- _ => rewrite H ; clear H end ;
-    auto ].
-    
+    auto (* reflexivity would be more ideal but sometimes rewriting the induction hypothesis fails
+            because the recursive call is dependant on something else, for example something quantified. *)
+    ].
+
+(* The following only change which argument induction is applied on. *)
+
 Ltac total_align2 :=
   align_ε' ; [ repeat split ; intros ; auto
   | let f' := fresh in
