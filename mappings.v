@@ -1,4 +1,4 @@
-(****************************************************************************)
+(* (****************************************************************************) *)
 (* Coq theory for encoding HOL-Light proofs. *)
 (****************************************************************************)
 
@@ -2073,15 +2073,17 @@ Ltac _dest_mk_rec :=
 (****************************************************************************)
 
 (* simply splitting every conjunctive hypothesis, a lot faster than going brutally with firstorder *)
-Ltac full_split := 
-  let rec full_split' :=
+Ltac full_destruct := 
+  let rec full_destruct' :=
     match goal with 
     | H : _ /\ _ |- _ => let H' := fresh in 
-      destruct H as (H , H') ; try full_split'
-    | H : exists x, _ |- _ =>
-      destruct H as (x , H) ; try full_split'
+      destruct H as (H , H') ; try full_destruct'
+    | H : exists x, _ |- _ => let x := fresh x in
+      destruct H as (x , H) ; try full_destruct'
+    | H : _ \/ _ |- _ =>
+      destruct H as [H | H] ; try full_destruct'
     end
-  in full_split'.
+  in full_destruct'.
 
 Ltac total_align1 :=
   align_ε' ; (* At this state, we have two goals : [P f] and [P f -> P f' -> f = f'].
@@ -2100,7 +2102,7 @@ Ltac total_align1 :=
     let H' := fresh in
     intros f' H H' ; ext r ; induction r ; 
     try ext a; try ext b ; try ext c ; try ext d ;
-    full_split ; (* with the correct induction principle, we have one case per clause,
+    full_destruct ; (* with the correct induction principle, we have one case per clause,
                     we can replace [f] and [f']'s values with the corresponding 
                     clause in [P] (that we have split). By also rewriting all induction hypotheses,
                     reflexivity should do the work.
@@ -2127,7 +2129,7 @@ Ltac total_align2 :=
     intros f' H H' ; ext a r ;
     revert a ; induction r ; intro a ; try ext b ;
     try ext c ; try ext d ;
-    full_split ; repeat match goal with
+    full_destruct ; repeat match goal with
     H : ?P |- _ => rewrite H ; clear H end ; auto ].
 
 Ltac total_align3 :=
@@ -2143,7 +2145,7 @@ Ltac total_align3 :=
     intros f' H H' ; ext a b r ;
     revert a b ; induction r ; intros a b ;
     try ext c ; try ext d ;
-    full_split ; repeat match goal with
+    full_destruct ; repeat match goal with
     H : _ |- _ => rewrite H ; clear H end ; auto ].
 
 Ltac total_align4 :=
@@ -2158,7 +2160,7 @@ Ltac total_align4 :=
     let H' := fresh in
     intros f' H H' ; ext a b c ; ext r ;
     revert a b c ; induction r ; intros a b c ;
-    try ext d ; full_split ;
+    try ext d ; full_destruct ;
     repeat match goal with
     H : _ |- _ => rewrite H ; clear H end ; auto ].
 
@@ -2174,7 +2176,7 @@ Ltac total_align5 :=
     let H' := fresh in
     intros f' H H' ; ext a b c ; ext d r ;
     revert a b c d ; induction r ; intros a b c d ;
-    full_split ; repeat match goal with
+    full_destruct ; repeat match goal with
     H : _ |- _ => rewrite H ; clear H end ; auto ].
 
 Ltac total_align :=
@@ -2211,7 +2213,7 @@ Ltac ind_align :=
     try breakgoal_exists H' ;
     try breakgoal_simple
   | apply H ; clear H ; clear x ;
-    intros x H ; full_split ].
+    intros x H ; full_destruct ].
 
 (****************************************************************************)
 (* Alignment of the sum type constructor. *)
