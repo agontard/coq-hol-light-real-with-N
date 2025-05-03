@@ -2213,7 +2213,8 @@ Ltac ind_align :=
     try breakgoal_exists H' ;
     try breakgoal_simple
   | apply H ; clear H ; clear x ;
-    intros x H ; full_destruct ].
+    intros x H ; full_destruct ; try match goal with
+    H : _ |- _ => rewrite H end ].
 
 (****************************************************************************)
 (* Alignment of the sum type constructor. *)
