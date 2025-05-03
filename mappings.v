@@ -2069,6 +2069,151 @@ Ltac _dest_mk_rec :=
     intros P H' ; apply H' ; simpl ].
 
 (****************************************************************************)
+(* Some tactics to help automatize function alignments *)
+(****************************************************************************)
+
+(* simply splitting every conjunctive hypothesis, a lot faster than going brutally with firstorder *)
+Ltac full_split := 
+  let rec full_split' :=
+    match goal with 
+    | H : _ /\ _ |- _ => let H' := fresh in 
+      destruct H as (H , H') ; try full_split'
+    | H : exists x, _ |- _ =>
+      destruct H as (x , H) ; try full_split'
+    end
+  in full_split'.
+
+Ltac total_align1 :=
+  align_ε' ; (* At this state, we have two goals : [P f] and [P f -> P f' -> f = f'].
+                We now assume that [P] is of the form
+                [Q1 g C1 = ... /\ Q2 g C2 = ... /\ ... /\ Qn g Cn = ...]
+                where the Ci are the constructors of the type and
+                the Qi are universal quantifications over other arguments and subterms of the Ci. *)
+  [ repeat split ; intros ; auto 
+  | let f' := fresh in
+    let r := fresh in
+    let a := fresh in
+    let b := fresh in
+    let c := fresh in
+    let d := fresh in
+    let H := fresh in
+    let H' := fresh in
+    intros f' H H' ; ext r ; induction r ; 
+    try ext a; try ext b ; try ext c ; try ext d ;
+    full_split ; (* with the correct induction principle, we have one case per clause,
+                    we can replace [f] and [f']'s values with the corresponding 
+                    clause in [P] (that we have split). By also rewriting all induction hypotheses,
+                    reflexivity should do the work.
+                    For more complex types, it is possible to try and adapt this tactic
+                    to specify how the induction should be used (if it is not just a rewrite). *)
+    repeat match goal with
+    H : _ |- _ => rewrite H ; clear H end ;
+    auto (* reflexivity would be more ideal but sometimes rewriting the induction hypothesis fails
+            because the recursive call is dependant on something else, for example something quantified. *)
+    ].
+
+(* The following only change which argument induction is applied on. *)
+
+Ltac total_align2 :=
+  align_ε' ; [ repeat split ; intros ; auto
+  | let f' := fresh in
+    let r := fresh in
+    let a := fresh in
+    let b := fresh in
+    let c := fresh in
+    let d := fresh in
+    let H := fresh in
+    let H' := fresh in
+    intros f' H H' ; ext a r ;
+    revert a ; induction r ; intro a ; try ext b ;
+    try ext c ; try ext d ;
+    full_split ; repeat match goal with
+    H : ?P |- _ => rewrite H ; clear H end ; auto ].
+
+Ltac total_align3 :=
+  align_ε' ; [ repeat split ; intros ; auto
+  | let f' := fresh in
+    let r := fresh in
+    let a := fresh in
+    let b := fresh in
+    let c := fresh in
+    let d := fresh in
+    let H := fresh in
+    let H' := fresh in
+    intros f' H H' ; ext a b r ;
+    revert a b ; induction r ; intros a b ;
+    try ext c ; try ext d ;
+    full_split ; repeat match goal with
+    H : _ |- _ => rewrite H ; clear H end ; auto ].
+
+Ltac total_align4 :=
+  align_ε' ; [ repeat split ; intros ; auto
+  | let f' := fresh in
+    let r := fresh in
+    let a := fresh in
+    let b := fresh in
+    let c := fresh in
+    let d := fresh in
+    let H := fresh in
+    let H' := fresh in
+    intros f' H H' ; ext a b c ; ext r ;
+    revert a b c ; induction r ; intros a b c ;
+    try ext d ; full_split ;
+    repeat match goal with
+    H : _ |- _ => rewrite H ; clear H end ; auto ].
+
+Ltac total_align5 :=
+  align_ε' ; [ repeat split ; intros ; auto
+  | let f' := fresh in
+    let r := fresh in
+    let a := fresh in
+    let b := fresh in
+    let c := fresh in
+    let d := fresh in
+    let H := fresh in
+    let H' := fresh in
+    intros f' H H' ; ext a b c ; ext d r ;
+    revert a b c d ; induction r ; intros a b c d ;
+    full_split ; repeat match goal with
+    H : _ |- _ => rewrite H ; clear H end ; auto ].
+
+Ltac total_align :=
+  try total_align1 ;
+  try total_align2 ;
+  try total_align3 ;
+  try total_align4 ;
+  try total_align5.
+
+Ltac breakgoal_exists H :=
+  let rec breakgoal_exists' :=
+    match goal with
+    | |- _ \/ _ => left + right ; breakgoal_exists'
+    | x : ?T |- exists _ : ?T, _ => exists x ; breakgoal_exists'
+    | |- _ /\ _ => split ; [reflexivity | try now apply H]
+    end
+  in breakgoal_exists'.
+
+Ltac breakgoal_simple :=
+  let rec breakgoal_simple' :=
+    match goal with
+    | |- _ \/ _ => left + right ; breakgoal_simple'
+    | _ => assumption
+    end
+  in breakgoal_simple'.
+
+Ltac ind_align :=
+  let x := fresh "x" in
+  let H := fresh in
+  ext x ; apply prop_ext ; intro H ;
+  [ let P' := fresh "P'" in
+    let H' := fresh "H'" in
+    intros P' H' ; apply H' ; induction H ;
+    try breakgoal_exists H' ;
+    try breakgoal_simple
+  | apply H ; clear H ; clear x ;
+    intros x H ; full_split ].
+
+(****************************************************************************)
 (* Alignment of the sum type constructor. *)
 (****************************************************************************)
 
@@ -2212,117 +2357,8 @@ Qed.
 Require Import Coq.Lists.List.
 
 (****************************************************************************)
-(* Some tactics to help automatize function alignments *)
+(* Alignment of partial list functions *)
 (****************************************************************************)
-
-(* simply splitting everything, a lot faster than going brutally with firstorder *)
-Ltac full_split := 
-  let rec full_split' :=
-    match goal with H : _ /\ _ |- _ =>
-      let H' := fresh in destruct H as (H , H') ;
-        try full_split' end in
-  full_split'.
-
-Ltac total_align1 :=
-  align_ε' ; (* At this state, we have two goals : [P f] and [P f -> P f' -> f = f'].
-                We now assume that [P] is of the form
-                [Q1 g C1 = ... /\ Q2 g C2 = ... /\ ... /\ Qn g Cn = ...]
-                where the Ci are the constructors of the type and
-                the Qi are universal quantifications over other arguments and subterms of the Ci. *)
-  [ repeat split ; intros ; auto 
-  | let f' := fresh in
-    let r := fresh in
-    let a := fresh in
-    let b := fresh in
-    let c := fresh in
-    let d := fresh in
-    let H := fresh in
-    let H' := fresh in
-    intros f' H H' ; ext r ; induction r ; 
-    try ext a; try ext b ; try ext c ; try ext d ;
-    full_split ; (* with the correct induction principle, we have one case per clause,
-                    we can replace [f] and [f']'s values with the corresponding 
-                    clause in [P] (that we have split). By also rewriting all induction hypotheses,
-                    reflexivity should do the work.
-                    For more complex types, it is possible to try and adapt this tactic
-                    to specify how the induction should be used (if it is not just a rewrite). *)
-    repeat match goal with
-    H : _ |- _ => rewrite H ; clear H end ;
-    auto (* reflexivity would be more ideal but sometimes rewriting the induction hypothesis fails
-            because the recursive call is dependant on something else, for example something quantified. *)
-    ].
-
-(* The following only change which argument induction is applied on. *)
-
-Ltac total_align2 :=
-  align_ε' ; [ repeat split ; intros ; auto
-  | let f' := fresh in
-    let r := fresh in
-    let a := fresh in
-    let b := fresh in
-    let c := fresh in
-    let d := fresh in
-    let H := fresh in
-    let H' := fresh in
-    intros f' H H' ; ext a r ;
-    revert a ; induction r ; intro a ; try ext b ;
-    try ext c ; try ext d ;
-    full_split ; repeat match goal with
-    H : ?P |- _ => rewrite H ; clear H end ; auto ].
-
-Ltac total_align3 :=
-  align_ε' ; [ repeat split ; intros ; auto
-  | let f' := fresh in
-    let r := fresh in
-    let a := fresh in
-    let b := fresh in
-    let c := fresh in
-    let d := fresh in
-    let H := fresh in
-    let H' := fresh in
-    intros f' H H' ; ext a b r ;
-    revert a b ; induction r ; intros a b ;
-    try ext c ; try ext d ;
-    full_split ; repeat match goal with
-    H : _ |- _ => rewrite H ; clear H end ; auto ].
-
-Ltac total_align4 :=
-  align_ε' ; [ repeat split ; intros ; auto
-  | let f' := fresh in
-    let r := fresh in
-    let a := fresh in
-    let b := fresh in
-    let c := fresh in
-    let d := fresh in
-    let H := fresh in
-    let H' := fresh in
-    intros f' H H' ; ext a b c ; ext r ;
-    revert a b c ; induction r ; intros a b c ;
-    try ext d ; full_split ;
-    repeat match goal with
-    H : _ |- _ => rewrite H ; clear H end ; auto ].
-
-Ltac total_align5 :=
-  align_ε' ; [ repeat split ; intros ; auto
-  | let f' := fresh in
-    let r := fresh in
-    let a := fresh in
-    let b := fresh in
-    let c := fresh in
-    let d := fresh in
-    let H := fresh in
-    let H' := fresh in
-    intros f' H H' ; ext a b c ; ext d r ;
-    revert a b c d ; induction r ; intros a b c d ;
-    full_split ; repeat match goal with
-    H : _ |- _ => rewrite H ; clear H end ; auto ].
-
-Ltac total_align :=
-  try total_align1 ;
-  try total_align2 ;
-  try total_align3 ;
-  try total_align4 ;
-  try total_align5.
 
 (* total_align works for totally defined functions, but sometimes the functions will be defined
    only partially. The following tactics are intended for cases where the function is defined 
