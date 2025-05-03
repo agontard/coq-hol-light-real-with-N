@@ -338,6 +338,16 @@ Proof.
     reflexivity.
 Qed.
 
+Lemma COND_intro {A : Type'} (Q : Prop) (P : A -> Prop) (x y : A) :
+  (Q -> P x) -> (~Q -> P y) -> P (COND Q x y).
+Proof.
+  intros H H'. destruct (classic Q) as [ QT | QF ].
+  - replace Q with True. rewrite COND_True. exact (H QT).
+    symmetry. now rewrite is_True.
+  - replace Q with False. rewrite COND_False. exact (H' QF).
+    symmetry. now rewrite is_False.
+Qed.
+
 Lemma prove_COND (P Q R : Prop) : (P -> Q) -> (~ P -> R) -> COND P Q R.
 Proof.
   intros hq hr.
@@ -1277,7 +1287,7 @@ Proof.
   align_ε.
   - exists N.modulo.
     intros m n.
-    apply prove_COND; intro h.
+    apply COND_intro; intro h.
     + rewrite h.
       split.
       * exact (N.div_0_r m).
@@ -1304,7 +1314,7 @@ Lemma MOD_def : N.modulo = (@ε (arr (prod N (prod N N)) (arr N (arr N N'))) (fu
 Proof.
   cbn.
   align_ε.
-  - intros m n. apply prove_COND; intro h.
+  - intros m n. apply COND_intro; intro h.
     + rewrite h.
       split.
       * exact (N.div_0_r m).
