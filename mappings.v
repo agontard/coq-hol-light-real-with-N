@@ -1,4 +1,4 @@
-(* (****************************************************************************) *)
+(****************************************************************************)
 (* Coq theory for encoding HOL-Light proofs. *)
 (****************************************************************************)
 
@@ -1841,7 +1841,7 @@ Proof.
 Qed.
 
 (* For axiom_9 we need to prove injectivity of _dest_rec, which requires to prove 
-   injectivity of every embeddings involved  *)
+   injectivity of every embedding involved  *)
 Lemma NUMSUM_INJ : forall b1 : Prop, forall x1 : N, forall b2 : Prop, forall x2 : N, ((NUMSUM b1 x1) = (NUMSUM b2 x2)) = ((b1 = b2) /\ (x1 = x2)).
 Proof.
   intros b1 x1 b2 x2. apply prop_ext. 2: intros [e1 e2]; subst; reflexivity.
@@ -2191,7 +2191,7 @@ Ltac breakgoal_exists H :=
     match goal with
     | |- _ \/ _ => left + right ; breakgoal_exists'
     | x : ?T |- exists _ : ?T, _ => exists x ; breakgoal_exists'
-    | |- _ /\ _ => split ; [reflexivity | try now apply H]
+    | |- _ /\ _ => split ; [reflexivity | try assumption ; try now apply H]
     end
   in breakgoal_exists'.
 
