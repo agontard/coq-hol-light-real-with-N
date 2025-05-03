@@ -2203,7 +2203,7 @@ Ltac ind_align :=
   [ let P' := fresh "P'" in
     let H' := fresh "H'" in
     intros P' H' ; apply H' ; induction H ;
-    try breakgoal H
+    try breakgoal H'
   | apply H ; clear H ; clear x ;
     intros x H ; full_destruct ; try match goal with
     H : _ |- _ => rewrite H end ].
