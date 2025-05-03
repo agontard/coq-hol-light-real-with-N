@@ -2186,22 +2186,15 @@ Ltac total_align :=
   try total_align4 ;
   try total_align5.
 
-Ltac breakgoal_exists H :=
-  let rec breakgoal_exists' :=
+Ltac breakgoal H :=
+  let rec breakgoal' :=
     match goal with
-    | |- _ \/ _ => left + right ; breakgoal_exists'
-    | x : ?T |- exists _ : ?T, _ => exists x ; breakgoal_exists'
-    | |- _ /\ _ => split ; [reflexivity | try assumption ; try now apply H]
+    | |- _ \/ _ => left + right ; breakgoal'
+    | x : ?T |- exists _ : ?T, _ => exists x ; breakgoal'
+    | |- _ /\ _ => split ; [reflexivity | try apply H ; try now apply H ; try assumption ]
+    | |- _ => try apply H ; try assumption ; reflexivity
     end
-  in breakgoal_exists'.
-
-Ltac breakgoal_simple :=
-  let rec breakgoal_simple' :=
-    match goal with
-    | |- _ \/ _ => left + right ; breakgoal_simple'
-    | _ => assumption
-    end
-  in breakgoal_simple'.
+  in breakgoal'.
 
 Ltac ind_align :=
   let x := fresh "x" in
@@ -2210,8 +2203,7 @@ Ltac ind_align :=
   [ let P' := fresh "P'" in
     let H' := fresh "H'" in
     intros P' H' ; apply H' ; induction H ;
-    try breakgoal_exists H' ;
-    try breakgoal_simple
+    try breakgoal H
   | apply H ; clear H ; clear x ;
     intros x H ; full_destruct ; try match goal with
     H : _ |- _ => rewrite H end ].
