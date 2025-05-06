@@ -2072,7 +2072,8 @@ Ltac _dest_mk_rec :=
 (* Some tactics to help automatize function alignments *)
 (****************************************************************************)
 
-(* simply splitting every conjunctive hypothesis, a lot faster than going brutally with firstorder *)
+(* simply decomposing each hypothesis that we might encounter,
+   a lot faster than going brutally with firstorder *)
 Ltac full_destruct := 
   let rec full_destruct' :=
     match goal with 
@@ -2087,8 +2088,8 @@ Ltac full_destruct :=
 
 Ltac total_align1 :=
   align_ε' ; (* At this state, we have two goals : [P f] and [P f -> P f' -> f = f'].
-                We now assume that [P] is of the form
-                [Q1 g C1 = ... /\ Q2 g C2 = ... /\ ... /\ Qn g Cn = ...]
+                We now assume that [P f] is of the form
+                [Q1 f C1 = ... /\ Q2 f C2 = ... /\ ... /\ Qn f Cn = ...]
                 where the Ci are the constructors of the type and
                 the Qi are universal quantifications over other arguments and subterms of the Ci. *)
   [ repeat split ; intros ; auto 
@@ -2107,7 +2108,7 @@ Ltac total_align1 :=
                     clause in [P] (that we have split). By also rewriting all induction hypotheses,
                     reflexivity should do the work.
                     For more complex types, it is possible to try and adapt this tactic
-                    to specify how the induction should be used (if it is not just a rewrite). *)
+                    to specify how the induction hypothesis should be used (if it is not just a rewrite). *)
     repeat match goal with
     H : _ |- _ => rewrite H ; clear H end ;
     auto (* reflexivity would be more ideal but sometimes rewriting the induction hypothesis fails
@@ -2186,13 +2187,31 @@ Ltac total_align :=
   try total_align4 ;
   try total_align5.
 
-Ltac breakgoal H :=
+(* We can also help aligning inductive definitions :
+   the context is that the definition of an inductive [P : T -> Prop]
+   with rules rule1 , ... , rulen from HOL-Light is
+   [fun a => forall P' : T -> Prop, (forall a', rule1' a' \/ ... \/ rulen' a' -> P' a' ) -> P' a],
+   stating its induction principle.
+
+   If for example rule1 is
+   [rule1 : forall x1 ... xn, H1 -> ... -> Hk -> P (f x1 ... xn)] for some f then [rule1' a] is
+   [exists x1 ... xn, a = f x1 ... xn /\ H1 ... /\ Hk]. *)
+
+Ltac breakgoal H := (* trying to prove [rule1' a' \/ ... \/ rulen' a' -> P' a'] for some a' with hypothesis
+                       [P a] after induction on said hypothesis. *)
   let rec breakgoal' :=
     match goal with
     | |- _ \/ _ => left + right ; breakgoal'
-    | x : ?T |- exists _ : ?T, _ => exists x ; breakgoal'
-    | |- _ /\ _ => split ; [reflexivity | (try apply H) ; auto ; try assumption ]
-    | |- _ => (try now apply H) ; try assumption ; reflexivity
+    | x : ?T |- exists _ : ?T, _ => exists x ; breakgoal' (* the correct x1 ... xn should be directly given
+                                                             by the induction on [P a]. *)
+    | |- _ /\ _ => split ; [reflexivity | (repeat split) ; (try apply H) ; auto ; try assumption ]
+         (* the reflexivity proves a = f x1 ... xn and therefore assures us that we are
+            in the correct disjunctive clause. We cannot be sure of what to do after,
+            so we only try tactics dealing with the easiest cases.  *)
+    | |- _ => (try now apply H) ; try assumption ; reflexivity 
+        (* dealing with cases with no subterms. reflexivity is probably useless but
+           it's good to have a tactic that fails so that the tactic goes back to trying
+           other paths in the disjunction. *)
     end
   in breakgoal'.
 
@@ -2204,9 +2223,12 @@ Ltac ind_align :=
     let H' := fresh "H'" in
     intros P' H' ; apply H' ; induction H ;
     try breakgoal H'
-  | apply H ; clear H ; clear x ;
+  | apply H ; (* applying the HOL-Light definition to the coq version of P itself *)
+    clear H ; clear x ;
     intros x H ; full_destruct ; try match goal with
-    H : _ |- _ => rewrite H end ].
+    H : _ |- _ => rewrite H (* not much to do, each clause should be proved with a rule,
+                               we just try to rewrite [a = f x1 ... xn] if it exists *)
+    end ].
 
 (****************************************************************************)
 (* Alignment of the sum type constructor. *)
