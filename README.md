@@ -10,7 +10,9 @@ The translated theorems are provided as axioms in order to have a fast Require b
 The types and functions currently [aligned](https://github.com/Deducteam/coq-hol-light-real-with-N/blob/main/mappings.lp) are:
 - types: unit, prod, list, option, sum, ascii, N
 - functions on N: pred, add, mul, pow, le, lt, ge, gt, max, min, sub, div, modulo, even, odd, factorial
-- functions on list: app, rev, map, removelast, In, hd, tl
+- functions on list: app, rev, map, fold_right, removelast, combine, In, hd, tl, last, Forall, Forall2, Exists, nth*, length*, repeat*, filter**\
+\* modulo correspondance between N and nat with N.of_nat and N.to_nat\
+** modulo truth value Prop -> bool with excluded middle and choice
 
 More types and functions are aligned in [coq-hol-light](https://github.com/Deducteam/coq-hol-light).
 
