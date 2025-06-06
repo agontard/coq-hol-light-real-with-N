@@ -330,6 +330,15 @@ Qed.
 Definition COND {A : Type'} (P : Prop) (x y : A) := 
   ε (fun z : A => (P -> z = x) /\ (~P -> z = y)).
 
+(* The following are useful tools to work with COND :
+   - Tactic COND_triv replaces [COND P x y] in the goal with either x or y
+     assuming P or ~P is derivable with easy.
+   - Tactic COND_intro transforms a goal [P (COND Q x y)]
+     into two goals [Q -> P x] and [~Q -> P y] and
+     simplifies all other [COND Q x' y'] even if x<>x' or y<>y'
+   - Lemma COND_elim destructs hypothesis COND P Q R
+     as if it were (P /\ Q) \/ (~P /\ R) *)
+
 Lemma COND_True (A : Type') (P : Prop) (x y : A) : P -> COND P x y = x.
 Proof.
   intro H.
@@ -355,9 +364,14 @@ Proof.
     assumption.
 Qed.
 
-Ltac COND_triv :=
+Tactic Notation "COND_triv" :=
   (rewrite COND_True ; [auto | easy]) +
   (rewrite COND_False ; [auto | easy]).
+
+(* If needed, specify which P is trivial *)
+Tactic Notation "COND_triv" constr(P) :=
+  (rewrite (COND_True _ P) ; [auto | easy]) +
+  (rewrite (COND_False _ P) ; [auto | easy]).
 
 Lemma COND_intro {A : Type'} (Q : Prop) (P : A -> Prop) (x y : A) :
   (Q -> P x) -> (~Q -> P y) -> P (COND Q x y).
@@ -365,13 +379,13 @@ Proof.
   intros H H'. destruct (classic Q) as [ QT | QF ] ; COND_triv.
 Qed.
 
-(* The following applies COND_intro and also replaces all instances of COND P x' y' with
-   x' or y' depending on the case for any x' and y' *)
-(* Variant with user named hypothesis: *)
+(* applies COND_intro then also clears all COND with
+   the same hypothesis *)
+(* Variant with user named hypothesis*)
 Tactic Notation "COND_intro" simple_intropattern(H) :=
   apply COND_intro ; intro H ;
   [ repeat rewrite (COND_True _ _ _ _ H)
-  | repeat rewrite (COND_False _ _ _ _ H) ].
+  | repeat rewrite (COND_False _ _ _ _ H)].
 
 (* Variant without user named hypothesis: *)
 Tactic Notation "COND_intro" := let H := fresh in COND_intro H.
