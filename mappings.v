@@ -355,12 +355,14 @@ Proof.
     assumption.
 Qed.
 
+Ltac COND_triv :=
+  (rewrite COND_True ; [auto | easy]) +
+  (rewrite COND_False ; [auto | easy]).
+
 Lemma COND_intro {A : Type'} (Q : Prop) (P : A -> Prop) (x y : A) :
   (Q -> P x) -> (~Q -> P y) -> P (COND Q x y).
 Proof.
-  intros H H'. destruct (classic Q) as [ QT | QF ].
-  - rewrite COND_True ; auto.
-  - rewrite COND_False ; auto.
+  intros H H'. destruct (classic Q) as [ QT | QF ] ; COND_triv.
 Qed.
 
 (* The following applies COND_intro and also replaces all instances of COND P x' y' with
@@ -371,7 +373,7 @@ Tactic Notation "COND_intro" simple_intropattern(H) :=
   [ repeat rewrite (COND_True _ _ _ _ H)
   | repeat rewrite (COND_False _ _ _ _ H) ].
 
-(* Variant without: *)
+(* Variant without user named hypothesis: *)
 Tactic Notation "COND_intro" := let H := fresh in COND_intro H.
 
 (* deprecated, COND_intro is more general *)
@@ -1660,12 +1662,12 @@ Proof. lia. Qed.
 Lemma NUMSUM_surjective n : exists b x, n = NUMSUM b x.
 Proof.
   exists (NUMLEFT n). exists (NUMRIGHT n). unfold NUMSUM, NUMLEFT, NUMRIGHT, NUMERAL, BIT1, BIT0.
-  case_eq (N.even n); intro h.
-  rewrite COND_False ; auto. rewrite N.even_spec in h. destruct h as [k h]. subst n.
-  rewrite NDIV_MULT. reflexivity. lia.
-  rewrite COND_True ; auto. apply eq_false_negb_true in h. change (N.odd n = true) in h.
-  rewrite N.odd_spec in h. destruct h as [k h]. subst. rewrite Nplus_1_minus_1.
-  rewrite NDIV_MULT. lia. lia.
+  case_eq (N.even n); intro h ; COND_triv.
+  - rewrite N.even_spec in h. destruct h as [k h]. subst n.
+    rewrite NDIV_MULT. reflexivity. lia.
+  - apply eq_false_negb_true in h. change (N.odd n = true) in h.
+    rewrite N.odd_spec in h. destruct h as [k h]. subst. rewrite Nplus_1_minus_1.
+    rewrite NDIV_MULT. lia. lia.
 Qed.
 
 Lemma NUMLEFT_def : NUMLEFT = (@ε ((prod N (prod N (prod N (prod N (prod N (prod N N)))))) -> N -> Prop) (fun X : (prod N (prod N (prod N (prod N (prod N (prod N N)))))) -> N -> Prop => forall _17372 : prod N (prod N (prod N (prod N (prod N (prod N N))))), exists Y : N -> N, forall x : Prop, forall y : N, ((X _17372 (NUMSUM x y)) = x) /\ ((Y (NUMSUM x y)) = y)) (@pair N (prod N (prod N (prod N (prod N (prod N N))))) (NUMERAL (BIT0 (BIT1 (BIT1 (BIT1 (BIT0 (BIT0 (BIT1 0)))))))) (@pair N (prod N (prod N (prod N (prod N N)))) (NUMERAL (BIT1 (BIT0 (BIT1 (BIT0 (BIT1 (BIT0 (BIT1 0)))))))) (@pair N (prod N (prod N (prod N N))) (NUMERAL (BIT1 (BIT0 (BIT1 (BIT1 (BIT0 (BIT0 (BIT1 0)))))))) (@pair N (prod N (prod N N)) (NUMERAL (BIT0 (BIT0 (BIT1 (BIT1 (BIT0 (BIT0 (BIT1 0)))))))) (@pair N (prod N N) (NUMERAL (BIT1 (BIT0 (BIT1 (BIT0 (BIT0 (BIT0 (BIT1 0)))))))) (@pair N N (NUMERAL (BIT0 (BIT1 (BIT1 (BIT0 (BIT0 (BIT0 (BIT1 0)))))))) (NUMERAL (BIT0 (BIT0 (BIT1 (BIT0 (BIT1 (BIT0 (BIT1 0))))))))))))))).
@@ -2621,8 +2623,6 @@ match n with
 |0 => nil
 |Npos n => repeatpos n a end.
 
-Check repeat. 
-
 Lemma repeatpos_sym {A : Type} (a : A) (p p' : positive) :
   repeatpos p a ++ a :: repeatpos p' a = a :: repeatpos p a ++ repeatpos p' a.
 Proof. 
@@ -2649,7 +2649,7 @@ Lemma repeat_to_nat_N {A : Type} n (a : A) :
   repeat a (N.to_nat n) = repeatN n a.
 Proof.
   revert n. apply N.peano_ind.
-  reflexivity. intros n IHn. Search N.to_nat N.succ.
+  reflexivity. intros n IHn.
   now rewrite repeatN_succ , Nnat.N2Nat.inj_succ , <- IHn.
 Qed.
 
