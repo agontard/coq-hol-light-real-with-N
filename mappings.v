@@ -2764,6 +2764,16 @@ match l with
 |nil => nil
 |a::l => (a,hd l') :: zip l (tl l') end.
 
+(* In case it is needed *)
+Lemma zip_combine {A B : Type'} (l : list A) (l' : list B) :
+  (length l <= length l')%nat -> zip l l' = combine l l'.
+Proof.
+  revert l'. induction l ; intros l' H.
+  reflexivity. destruct l'.
+  - simpl in H. destruct (Nat.nle_succ_0 _ H).
+  - simpl. rewrite IHl. reflexivity. now apply le_S_n.
+Qed.
+
 Lemma ZIP_def {A B : Type'} : zip = (@ε ((prod N (prod N N)) -> (list A) -> (list B) -> list (prod A B)) (fun ZIP' : (prod N (prod N N)) -> (list A) -> (list B) -> list (prod A B) => forall _18205 : prod N (prod N N), (forall l2 : list B, (ZIP' _18205 (@nil A) l2) = (@nil (prod A B))) /\ (forall h1' : A, forall t1 : list A, forall l2 : list B, (ZIP' _18205 (@cons A h1' t1) l2) = (@cons (prod A B) (@pair A B h1' (@hd B l2)) (ZIP' _18205 t1 (@tl B l2))))) (@pair N (prod N N) ((BIT0 (BIT1 (BIT0 (BIT1 (BIT1 (BIT0 (BIT1 N0)))))))) (@pair N N ((BIT1 (BIT0 (BIT0 (BIT1 (BIT0 (BIT0 (BIT1 N0)))))))) ((BIT0 (BIT0 (BIT0 (BIT0 (BIT1 (BIT0 (BIT1 N0))))))))))).
 Proof.
   total_align.
