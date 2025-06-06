@@ -84,6 +84,23 @@ Tactic Notation "intro_ext" simple_intropattern(e) ident(x) :=
   intro_ext e; gen_intro (ext_fun (e x)) e.
 
 (****************************************************************************)
+(* Repeating exists. *)
+(****************************************************************************)
+
+Tactic Notation "exist" uconstr(x1) uconstr(x2) :=
+  exists x1 ; exists x2.
+
+Tactic Notation "exist" uconstr(x1) uconstr(x2) uconstr(x3) :=
+  exists x1 ; exists x2 ; exists x3.
+
+Tactic Notation "exist" uconstr(x1) uconstr(x2) uconstr(x3) uconstr(x4) :=
+  exists x1 ; exists x2 ; exists x3 ; exists x4.
+
+Tactic Notation "exist" uconstr(x1) uconstr(x2) uconstr(x3) uconstr(x4) uconstr(x5) :=
+  exists x1 ; exists x2 ; exists x3 ; exists x4 ; exists x5.
+
+
+(****************************************************************************)
 (* Hilbert's ε operator. *)
 (****************************************************************************)
 
@@ -345,6 +362,17 @@ Proof.
   - rewrite COND_True ; auto.
   - rewrite COND_False ; auto.
 Qed.
+
+(* The following applies COND_intro and also replaces all instances of COND P x' y' with
+   x' or y' depending on the case for any x' and y' *)
+(* Variant with user named hypothesis: *)
+Tactic Notation "COND_intro" simple_intropattern(H) :=
+  apply COND_intro ; intro H ;
+  [ repeat rewrite (COND_True _ _ _ _ H)
+  | repeat rewrite (COND_False _ _ _ _ H) ].
+
+(* Variant without: *)
+Tactic Notation "COND_intro" := let H := fresh in COND_intro H.
 
 (* deprecated, COND_intro is more general *)
 Definition prove_COND (P : Prop) : forall Q R : Prop, (P -> Q) -> (~ P -> R) -> COND P Q R := 
@@ -1253,12 +1281,12 @@ Proof. symmetry. apply prop_ext_eq. exact (N.succ_le_mono x y). Qed.
 
 Lemma MAX_def : N.max = (fun _2273 : N => fun _2274 : N => @COND N (N.le _2273 _2274) _2274 _2273).
 Proof.
-  ext x y. apply COND_intro ; lia.
+  ext x y. COND_intro ; lia.
 Qed.
 
 Lemma MIN_def : N.min = (fun _2285 : N => fun _2286 : N => @COND N (N.le _2285 _2286) _2285 _2286).
 Proof.
-  ext x y. apply COND_intro ; lia.
+  ext x y. COND_intro ; lia.
 Qed.
 
 Lemma minus_def : N.sub = (@ε (arr N (arr N (arr N N'))) (fun pair' : N -> N -> N -> N => forall _2766 : N, (forall m : N, (pair' _2766 m (NUMERAL N0)) = m) /\ (forall m : N, forall n : N, (pair' _2766 m (N.succ n)) = (N.pred (pair' _2766 m n)))) (NUMERAL (BIT1 (BIT0 (BIT1 (BIT1 (BIT0 (BIT1 0)))))))).
@@ -1299,7 +1327,7 @@ Proof.
   align_ε.
   - exists N.modulo.
     intros m n.
-    apply COND_intro; intro h.
+    COND_intro h.
     + rewrite h.
       split.
       * exact (N.div_0_r m).
@@ -1326,7 +1354,7 @@ Lemma MOD_def : N.modulo = (@ε (arr (prod N (prod N N)) (arr N (arr N N'))) (fu
 Proof.
   cbn.
   align_ε.
-  - intros m n. apply COND_intro; intro h.
+  - intros m n. COND_intro h.
     + rewrite h.
       split.
       * exact (N.div_0_r m).
@@ -1608,8 +1636,8 @@ Proof. rewrite N.even_spec. exists n. reflexivity. Qed.
 Lemma NUMLEFT_NUMSUM b n : NUMLEFT (NUMSUM b n) = b.
 Proof.
   unfold NUMSUM, NUMERAL, BIT1, BIT0, NUMLEFT.
-  apply COND_intro ; rewrite double_0, succ_0, double_1 ;
-  intro H ; apply prop_ext ; intro H' ; try easy.
+  COND_intro ; rewrite double_0, succ_0, double_1 ;
+  apply prop_ext ; intro H' ; try easy.
   - rewrite N.even_succ , N.odd_mul , N.odd_2. reflexivity.
   - rewrite even_double in H'. destruct H'.
 Qed.
@@ -1620,8 +1648,7 @@ Proof. lia. Qed.
 Lemma NUMRIGHT_NUMSUM b n : NUMRIGHT (NUMSUM b n) = n.
 Proof.
   unfold NUMSUM, NUMERAL, BIT1, BIT0, NUMRIGHT.
-  apply COND_intro ;
-  rewrite double_0, succ_0, double_1 ; intro H.
+  COND_intro ; rewrite double_0, succ_0, double_1.
   - rewrite N.even_succ, N.odd_mul, N.odd_2, succ_minus_1, NDIV_MULT.
     reflexivity. discriminate.
   - rewrite even_double, NDIV_MULT. reflexivity. discriminate.
@@ -1920,7 +1947,7 @@ Lemma NUMSUM_INJ : forall b1 : Prop, forall x1 : N, forall b2 : Prop, forall x2 
 Proof.
   intros b1 x1 b2 x2. apply prop_ext. 2: intros [e1 e2]; subst; reflexivity.
   unfold NUMSUM. unfold NUMERAL, BIT1, BIT0.
-  do 2 apply COND_intro ; intros H H' e.
+  do 2 COND_intro.
   1,4 : split ; try now apply prop_ext.
   all : lia.
 Qed.
@@ -2447,7 +2474,7 @@ Inductive is_nil (A : Type) : list A -> Prop := nil_is_nil : is_nil A nil.
 Lemma COND_list {A : Type} {B : Type'} {l : list A} {x y : B} : 
   COND (l=[]) x y = match l with [] => x | _ => y end.
 Proof.
-  now apply COND_intro ; destruct l.
+  now COND_intro ; destruct l.
 Qed.
 
 (****************************************************************************)
@@ -2570,6 +2597,13 @@ _25594 => f x) l) (filter f l)).  rewrite <- IHl. reflexivity.
 destruct (f a). rewrite <- is_true_of_true. rewrite COND_True. rewrite
 <- IHl. reflexivity.  rewrite <- is_true_of_false. apply COND_False.
 Qed.*)
+
+Definition FILTER {A : Type} (P : A -> Prop) l := filter (fun a => COND (P a) true false) l.
+
+Lemma FILTER_def {A : Type'} : (@FILTER A) = (@ε ((prod N (prod N (prod N (prod N (prod N N))))) -> (A -> Prop) -> (list A) -> list A) (fun FILTER' : (prod N (prod N (prod N (prod N (prod N N))))) -> (A -> Prop) -> (list A) -> list A => forall _18185 : prod N (prod N (prod N (prod N (prod N N)))), (forall P : A -> Prop, (FILTER' _18185 P (@nil A)) = (@nil A)) /\ (forall h : A, forall P : A -> Prop, forall t : list A, (FILTER' _18185 P (@cons A h t)) = (@COND (list A) (P h) (@cons A h (FILTER' _18185 P t)) (FILTER' _18185 P t)))) (@pair N (prod N (prod N (prod N (prod N N)))) ((BIT0 (BIT1 (BIT1 (BIT0 (BIT0 (BIT0 (BIT1 N0)))))))) (@pair N (prod N (prod N (prod N N))) ((BIT1 (BIT0 (BIT0 (BIT1 (BIT0 (BIT0 (BIT1 N0)))))))) (@pair N (prod N (prod N N)) ((BIT0 (BIT0 (BIT1 (BIT1 (BIT0 (BIT0 (BIT1 N0)))))))) (@pair N (prod N N) ((BIT0 (BIT0 (BIT1 (BIT0 (BIT1 (BIT0 (BIT1 N0)))))))) (@pair N N ((BIT1 (BIT0 (BIT1 (BIT0 (BIT0 (BIT0 (BIT1 N0)))))))) ((BIT0 (BIT1 (BIT0 (BIT0 (BIT1 (BIT0 (BIT1 N0)))))))))))))).
+Proof.
+  total_align. simpl. now COND_intro.
+Qed.
 
 Lemma MEM_def {_25376 : Type'} : (@In _25376) = (@ε ((prod N (prod N N)) -> _25376 -> (list _25376) -> Prop) (fun MEM' : (prod N (prod N N)) -> _25376 -> (list _25376) -> Prop => forall _17995 : prod N (prod N N), (forall x : _25376, (MEM' _17995 x (@nil _25376)) = False) /\ (forall h : _25376, forall x : _25376, forall t : list _25376, (MEM' _17995 x (@cons _25376 h t)) = ((x = h) \/ (MEM' _17995 x t)))) (@pair N (prod N N) (NUMERAL (BIT1 (BIT0 (BIT1 (BIT1 (BIT0 (BIT0 (BIT1 0)))))))) (@pair N N (NUMERAL (BIT1 (BIT0 (BIT1 (BIT0 (BIT0 (BIT0 (BIT1 0)))))))) (NUMERAL (BIT1 (BIT0 (BIT1 (BIT1 (BIT0 (BIT0 (BIT1 0))))))))))).
 Proof.
@@ -2804,23 +2838,18 @@ Inductive char_ind : recspace (prod Prop (prod Prop (prod Prop (prod Prop (prod 
 
 Lemma Prop_bool_eq (P : Prop) : P = COND P true false.
 Proof.
-  apply COND_intro ; intro H.
+  COND_intro H.
   is_True H. exact is_true_of_true.
   is_False H. exact is_true_of_false.
 Qed.
 
 Lemma char_eq : char_pred = char_ind.
 Proof.
-  ext r. apply prop_ext.
-  - intro h. apply h. intros r' [a0 [a1 [a2 [a3 [a4 [a5 [a6 [a7 e]]]]]]]].
-    rewrite e, (Prop_bool_eq a0), (Prop_bool_eq a1), (Prop_bool_eq a2),
-      (Prop_bool_eq a3), (Prop_bool_eq a4), (Prop_bool_eq a5), (Prop_bool_eq a6),
-      (Prop_bool_eq a7).
-    exact (char_ind_cons (COND a0 true false) (COND a1 true false)
-       (COND a2 true false) (COND a3 true false) (COND a4 true false)
-       (COND a5 true false) (COND a6 true false) (COND a7 true false)).
-  - induction 1. unfold char_pred. intros R h. apply h.
-    exists a0. exists a1. exists a2. exists a3. exists a4. exists a5. exists a6. exists a7. reflexivity.
+  symmetry. ind_align.
+  - exist a0 a1 a2 a3 a4. now exist a5 a6 a7.
+  - rewrite (Prop_bool_eq x0), (Prop_bool_eq x1), (Prop_bool_eq x2), (Prop_bool_eq x3),
+      (Prop_bool_eq x4), (Prop_bool_eq x5), (Prop_bool_eq x6), (Prop_bool_eq x7).
+    exists.
 Qed.
 
 Lemma axiom_18' : forall (r : recspace (prod Prop (prod Prop (prod Prop (prod Prop (prod Prop (prod Prop (prod Prop Prop)))))))),
