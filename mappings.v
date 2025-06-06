@@ -695,13 +695,20 @@ Proof. apply prop_ext. reflexivity. intros _; exact I. Qed.
 (* Alignment of inductive propositions. *)
 (****************************************************************************)
 
-(* Tries to bruteforce a simple goal. *)
 Ltac breakgoal :=
   let rec breakgoal' :=
-    match goal with
+    match reverse goal with
     | |- _ \/ _ => left + right ; breakgoal' (* Try both *)
-    | x : ?T |- exists _ : ?T, _ => exists x ; breakgoal' (* When the witness is already in the context.
-                                                              Slow if a lot of variables of the same type exist *)
+    | x : ?T |- exists _ : ?T, _ => (* When the witness is already in the context.
+                                       Doesn't try a witness for multiple quantifers
+                                       by leaving a trace [H : x = x] whenever trying
+                                       [exists x].
+                                       Going from the top down with "reverse goal"
+                                       because they should appear in order. *)
+      match goal with
+      | H : x = x |- _ => fail
+      | _ => let H := fresh in
+        assert (H : x = x) ; try reflexivity ; exists x ; breakgoal' end
     | |- _ /\ _ => repeat split ; auto ; fail
          (* if auto cannot do the job, the tactic should fail to branch back.  *)
     | |- _ => auto ; fail
@@ -710,17 +717,10 @@ Ltac breakgoal :=
 
 (* simply decomposing each hypothesis that we might encounter,
    a lot faster than going brutally with firstorder *)
-Ltac full_destruct := 
-  let rec full_destruct' :=
-    match goal with 
-    | H : _ /\ _ |- _ => let H' := fresh in 
-      destruct H as (H , H') ; try full_destruct'
-    | H : exists x, _ |- _ => let x := fresh x in
-      destruct H as (x , H) ; try full_destruct'
-    | H : _ \/ _ |- _ =>
-      destruct H as [H | H] ; try full_destruct'
-    end
-  in full_destruct'.
+Ltac full_destruct := repeat match goal with
+  | H : _ /\ _ |- _ => destruct H
+  | H : exists x, _ |- _ => destruct H
+  | H : _ \/ _ |- _ => destruct H end.
 
 (* In HOL_Light, an inductive defintion is top-down :
    if [Case_i x1 ... xn : Hyps_i x1 ... xn -> P (f_i x1 ... xn)] for 1 <= i <= k
@@ -754,25 +754,6 @@ Ltac ind_align :=
     H : _ |- _ => rewrite H (* not much to do, each clause should be proved with a rule,
                                we just try to rewrite [a = f x1 ... xn] if it exists *)
     end ; try now (constructor;auto) ].
-
-
-(* exact same but does not try breakgoal. If one rule has 5 arguments of the same type,
-   then trying them at random at each [exists] results in 5^5 different possibilites that
-   breakgoal would have to try, and it can take more than one minute. *)
-Ltac fastind_align :=
-let x := fresh "x" in
-  let y := fresh "y" in
-  let z := fresh "z" in
-  let H := fresh in
-  try ext x ; try ext y ; try ext z ; apply prop_ext ; intro H ;
-  [ let P' := fresh "P'" in
-    let H' := fresh "H'" in
-    intros P' H' ; induction H ; apply H'
-  | apply H ;
-    clear H ; try clear x ; try clear y ; try clear z ;
-    try intros x y z H ; try intros x y H ; try intros x H ;
-    full_destruct ; repeat match goal with
-    H : _ |- _ => rewrite H end ; try now (constructor;auto) ].
 
 (****************************************************************************)
 (* Alignment of the unit type. *)
@@ -964,6 +945,7 @@ Definition NUM_REP := fun a : ind => forall NUM_REP' : ind -> Prop, (forall a' :
 Lemma NUM_REP_def : NUM_REP = (fun a : ind => forall NUM_REP' : ind -> Prop, (forall a' : ind, ((a' = IND_0) \/ (exists i : ind, (a' = (IND_SUC i)) /\ (NUM_REP' i))) -> NUM_REP' a') -> NUM_REP' a).
 Proof. exact (eq_refl NUM_REP). Qed.
 
+(* is NUM_REP' of any use ? *)
 Definition NUM_REP' := fun a : ind => forall P : ind -> Prop, (P IND_0 /\ forall i, P i -> P (IND_SUC i)) -> P a.
 
 Lemma NUM_REP_eq : NUM_REP = NUM_REP'.
@@ -1089,12 +1071,7 @@ Proof.
 Qed.
 
 Lemma _0_def : 0 = (mk_num IND_0).
-Proof.
-  unfold mk_num.
-  align_ε.
-  - reflexivity.
-  - exact (dest_num_inj 0).
-Qed.
+Proof. symmetry. exact (axiom_7 0). Qed.
 
 Lemma mk_num_S : forall i, NUM_REP i -> mk_num (IND_SUC i) = N.succ (mk_num i).
 Proof.
@@ -1595,7 +1572,7 @@ Proof. exact (eq_refl NUMSND). Qed.
 
 Lemma NUMSND_NUMPAIR x y : NUMSND (NUMPAIR x y) = y.
 Proof.
-  unfold NUMSND.
+  unfold NUMSND. 
   generalize  (NUMERAL (BIT0 (BIT1 (BIT1 (BIT1 (BIT0 (BIT0 (BIT1 0))))))),
      (NUMERAL (BIT1 (BIT0 (BIT1 (BIT0 (BIT1 (BIT0 (BIT1 0))))))),
       (NUMERAL (BIT1 (BIT0 (BIT1 (BIT1 (BIT0 (BIT0 (BIT1 0))))))),
@@ -1882,7 +1859,6 @@ Definition Fnil {A : Type} : N -> recspace A := fun _ => BOTTOM.
 Definition FCONS {A : Type} (a : A) (f: N -> A) (n : N) : A :=
   N.recursion a (fun n _ => f n) n.
 
-Definition recspacelist A := list (recspace A).
 Require Import Coq.Lists.List. Import ListNotations.
 
 Fixpoint Flist {A : Type} (l : list (recspace A)) : recspaceseq A :=
@@ -2086,47 +2062,32 @@ Ltac _dest_inj :=
    a goal stating injectivity of _dest_T thanks to finv_inv_l, then try to apply _dest_inj. *)
 Ltac _mk_dest_rec :=
   intros ; apply finv_inv_l ;
-  match goal with useless : _ |- _ => try clear useless end ; try _dest_inj.
+  repeat match goal with useless : _ |- _ => clear useless end ; try _dest_inj.
 
 (* Try to solve a goal of the form [forall r, P r = (_dest_T (_mk_T r)) = r)]
    for P defining the subset of recspace A with which the defined type(s) are
-   isomorphism. *)
+   isomorphism.
+   Thanks to finv_inv_r, the goal can be replaced by [P r <-> exists x, _dest_T x = r]
+   as long as _mk_T is defined as finv _dest_T.
+
+   P is an inductive definition so the following is very similar to ind_align,
+   except that [exists x, _dest_T x = r] is not inductive so we are rather inducting on x.
+   Compared to ind_align, we do not have access to the constructor tactic to automatically
+   find the correct constructor so it currently needs to be done by hand. *)
 Ltac _dest_mk_rec :=
   let H := fresh in 
   let x := fresh "x" in 
-  apply finv_inv_r ; (* finv_inv_r replaces the goal by
-                        [P r <-> exists x, _dest_T x = r] *)
-  [ intro H ; apply H ; (* P y states that to prove any P' y, one only has to prove
-                           P' x' for all x' built from the constructors (top down construction).
-                           so we apply it to our goal and then use breakgoal to break the hypothesis
-                           into clauses of equality with each constructor, rewrite it,
-                           then remove the hypothesis and we are only left with choosing
-                           the correct constructor to replace x with. *)
+  apply finv_inv_r ;
+  [ intro H ; apply H ;
     clear H ; intros x H ;
     full_destruct ; rewrite H ;
     clear H ; simpl in *
   | let x := fresh "x" in
-    (* simply inducting over [x] such that [_dest_ x = y]. *)
+    (* simply inducting over [x] such that [_dest_ x = r]. *)
     intros (x,<-) ;
     induction x ; let P := fresh in
     let H' := fresh in
     intros P H' ; apply H' ; try breakgoal ].
-
-(* In case of need : like for ind_align, version that does not try breakgoal *)
-
-Ltac fast_dest_mk_rec :=
-  let H := fresh in 
-  let x := fresh "x" in 
-  apply finv_inv_r ; 
-  [ intro H ; apply H ; 
-    clear H ; intros x H ;
-    full_destruct ; rewrite H ;
-    clear H ; simpl in *
-  | let x := fresh "x" in
-    intros (x,<-) ;
-    induction x ; let P := fresh in
-    let H' := fresh in
-    intros P H' ; apply H' ].
 
 (* - Finally, prove the definition of all constructors ( the lemmas _123456_def and C_def
      right under their definition in T_terms.v, replacing them with the new definition ).
@@ -2385,7 +2346,7 @@ Proof. _mk_dest_rec. Qed.
 Lemma axiom_12 : forall {A B : Type'} (r : recspace (prod A B)), ((fun a : recspace (prod A B) => forall sum' : (recspace (prod A B)) -> Prop, (forall a' : recspace (prod A B), ((exists a'' : A, a' = ((fun a''' : A => @CONSTR (prod A B) (NUMERAL 0) (@pair A B a''' (@ε B (fun v : B => True))) (fun n : N => @BOTTOM (prod A B))) a'')) \/ (exists a'' : B, a' = ((fun a''' : B => @CONSTR (prod A B) (N.succ (NUMERAL N0)) (@pair A B (@ε A (fun v : A => True)) a''') (fun n : N => @BOTTOM (prod A B))) a''))) -> sum' a') -> sum' a) r) = ((@_dest_sum A B (@_mk_sum A B r)) = r).
 Proof.
   intros A B r. _dest_mk_rec.
-  now exists (inl a''). now exists (inr a'').
+  now exists (inl x0). now exists (inr x0).
 Qed.
 
 Lemma INL_def {A B : Type'} : (@inl A B) = (fun a : A => @_mk_sum A B ((fun a' : A => @CONSTR (prod A B) (NUMERAL 0) (@pair A B a' (@ε B (fun v : B => True))) (fun n : N => @BOTTOM (prod A B))) a)).
@@ -2422,7 +2383,7 @@ Definition option_pred {A : Type'} (r : recspace A) :=
 
 Lemma axiom_14' : forall {A : Type'} (r : recspace A), (option_pred r) = ((@_dest_option A (@_mk_option A r)) = r).
 Proof.
-  intros A r. _dest_mk_rec. now exists None. now exists (Some a'').
+  intros A r. _dest_mk_rec. now exists None. now exists (Some x0).
 Qed.
 
 Lemma axiom_14 : forall {A : Type'} (r : recspace A), ((fun a : recspace A => forall option' : (recspace A) -> Prop, (forall a' : recspace A, ((a' = (@CONSTR A (NUMERAL N0) (@ε A (fun v : A => True)) (fun n : N => @BOTTOM A))) \/ (exists a'' : A, a' = ((fun a''' : A => @CONSTR A (N.succ (NUMERAL N0)) a''' (fun n : N => @BOTTOM A)) a''))) -> option' a') -> option' a) r) = ((@_dest_option A (@_mk_option A r)) = r).
@@ -2463,7 +2424,7 @@ Lemma axiom_16' : forall {A : Type'} (r : recspace A), (list_pred r) = ((@_dest_
 Proof.
   intros A r. _dest_mk_rec.
   - now exists nil.
-  - exists (cons a0 x0). now rewrite <- H0.
+  - exists (cons x0 x2). now rewrite <- H0.
   - right. exists a. exists (_dest_list x0). split.
     reflexivity. now apply IHx0.
 Qed.
@@ -2799,16 +2760,16 @@ Qed.
 (* Note the mismatch between Coq's ascii which takes booleans as arguments
 and HOL-Light's char which takes propositions as arguments. *)
 
-Require Import Coq.Strings.Ascii. Print ascii.
+Require Import Coq.Strings.Ascii.
 
 Definition ascii' := {| type := ascii; el := zero |}.
 Canonical ascii'.
 
-Definition _dest_char : ascii -> recspace (prod Prop (prod Prop (prod Prop (prod Prop (prod Prop (prod Prop (prod Prop Prop))))))) :=
-fun a => match a with
-| Ascii a0 a1 a2 a3 a4 a5 a6 a7 => CONSTR0 0
-  ((fun a0 a1 a2 a3 a4 a5 a6 a7 : Prop => (a0,(a1,(a2,(a3,(a4,(a5,(a6,(a7)))))))))
-  a0 a1 a2 a3 a4 a5 a6 a7) nil end.
+Definition _dest_char : ascii -> recspace (Prop*(Prop*(Prop*(Prop*(Prop*(Prop*(Prop*(Prop)))))))) :=
+  fun a => match a with
+  | Ascii a0 a1 a2 a3 a4 a5 a6 a7 => CONSTR0 0
+    ((fun a0 a1 a2 a3 a4 a5 a6 a7 : Prop => (a0,(a1,(a2,(a3,(a4,(a5,(a6,(a7)))))))))
+    a0 a1 a2 a3 a4 a5 a6 a7) nil end.
 
 Definition _mk_char := finv _dest_char.
 
