@@ -2621,7 +2621,9 @@ match n with
 |0 => nil
 |Npos n => repeatpos n a end.
 
-Lemma repeatpos_sym {A : Type'} (a : A) (p p' : positive) :
+Check repeat. 
+
+Lemma repeatpos_sym {A : Type} (a : A) (p p' : positive) :
   repeatpos p a ++ a :: repeatpos p' a = a :: repeatpos p a ++ repeatpos p' a.
 Proof. 
   revert p'. induction p;intro p'.
@@ -2634,12 +2636,26 @@ Proof.
   - auto.
 Qed.
 
+Lemma repeatN_succ {A : Type} n (a : A) : repeatN (N.succ n) a = a :: repeatN n a.
+Proof.
+  destruct n. auto.
+  induction p;auto.
+  - simpl in *. repeat rewrite IHp. rewrite <- app_comm_cons.
+    now rewrite repeatpos_sym.
+Qed.
+
+(* In case it is needed *)
+Lemma repeat_to_nat_N {A : Type} n (a : A) :
+  repeat a (N.to_nat n) = repeatN n a.
+Proof.
+  revert n. apply N.peano_ind.
+  reflexivity. intros n IHn. Search N.to_nat N.succ.
+  now rewrite repeatN_succ , Nnat.N2Nat.inj_succ , <- IHn.
+Qed.
+
 Lemma REPLICATE_def {A : Type'} : repeatN = (@ε ((prod N (prod N (prod N (prod N (prod N (prod N (prod N (prod N N)))))))) -> N -> A -> list A) (fun REPLICATE' : (prod N (prod N (prod N (prod N (prod N (prod N (prod N (prod N N)))))))) -> N -> A -> list A => forall _18125 : prod N (prod N (prod N (prod N (prod N (prod N (prod N (prod N N))))))), (forall x : A, (REPLICATE' _18125 (N0) x) = (@nil A)) /\ (forall n : N, forall x : A, (REPLICATE' _18125 (N.succ n) x) = (@cons A x (REPLICATE' _18125 n x)))) (@pair N (prod N (prod N (prod N (prod N (prod N (prod N (prod N N))))))) ((BIT0 (BIT1 (BIT0 (BIT0 (BIT1 (BIT0 (BIT1 N0)))))))) (@pair N (prod N (prod N (prod N (prod N (prod N (prod N N)))))) ((BIT1 (BIT0 (BIT1 (BIT0 (BIT0 (BIT0 (BIT1 N0)))))))) (@pair N (prod N (prod N (prod N (prod N (prod N N))))) ((BIT0 (BIT0 (BIT0 (BIT0 (BIT1 (BIT0 (BIT1 N0)))))))) (@pair N (prod N (prod N (prod N (prod N N)))) ((BIT0 (BIT0 (BIT1 (BIT1 (BIT0 (BIT0 (BIT1 N0)))))))) (@pair N (prod N (prod N (prod N N))) ((BIT1 (BIT0 (BIT0 (BIT1 (BIT0 (BIT0 (BIT1 N0)))))))) (@pair N (prod N (prod N N)) ((BIT1 (BIT1 (BIT0 (BIT0 (BIT0 (BIT0 (BIT1 N0)))))))) (@pair N (prod N N) ((BIT1 (BIT0 (BIT0 (BIT0 (BIT0 (BIT0 (BIT1 N0)))))))) (@pair N N ((BIT0 (BIT0 (BIT1 (BIT0 (BIT1 (BIT0 (BIT1 N0)))))))) ((BIT1 (BIT0 (BIT1 (BIT0 (BIT0 (BIT0 (BIT1 N0))))))))))))))))).
 Proof.
-  N_rec_align. intros n a. induction n. auto.
-  induction p;auto.
-  - simpl. simpl in IHp. repeat rewrite IHp. rewrite <- app_comm_cons.
-    now rewrite repeatpos_sym.
+  N_rec_align. exact repeatN_succ.
 Qed.
 
 Definition fold_right_with_perm_args {A B : Type'} 
