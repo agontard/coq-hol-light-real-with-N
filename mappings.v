@@ -1226,15 +1226,21 @@ Qed.
 
 Definition BIT1 := fun n : N => N.succ (BIT0 n).
 
+Ltac numfold := unfold NUMERAL, BIT1, BIT0 in *.
+Ltac numsimp := numfold ; simpl.
+
+(* automatically unfold them before lia. *)
+Ltac lia := numfold ; Coq.micromega.Lia.lia.
+
 Lemma BIT1_def : BIT1 = (fun _2143 : N => N.succ (BIT0 _2143)).
 Proof. exact (eq_refl BIT1). Qed.
 
-Lemma BIT1_eq_succ_double : BIT1 = N.succ_double.
-Proof. ext n. unfold BIT1, BIT0. lia. Qed.
+Lemma BIT1_eq_succ_double : BIT1 = N.succ_double. 
+Proof. ext n. lia. Qed.
 
 Lemma PRE_def : N.pred = (@ε (arr (prod N (prod N N)) (arr N N')) (fun PRE' : (prod N (prod N N)) -> N -> N' => forall _2151 : prod N (prod N N), ((PRE' _2151 (NUMERAL N0)) = (NUMERAL N0)) /\ (forall n : N, (PRE' _2151 (N.succ n)) = n)) (@pair N (prod N N) (NUMERAL (BIT0 (BIT0 (BIT0 (BIT0 (BIT1 (BIT0 (BIT1 0)))))))) (@pair N N (NUMERAL (BIT0 (BIT1 (BIT0 (BIT0 (BIT1 (BIT0 (BIT1 0)))))))) (NUMERAL (BIT1 (BIT0 (BIT1 (BIT0 (BIT0 (BIT0 (BIT1 0))))))))))).
 Proof.
-  unfold NUMERAL. N_rec_align. lia.
+  numsimp. N_rec_align. lia.
 Qed.
 
 Lemma add_def : N.add = (@ε (arr N (arr N (arr N N'))) (fun add' : N -> N -> N -> N => forall _2155 : N, (forall n : N, (add' _2155 (NUMERAL N0) n) = n) /\ (forall m : N, forall n : N, (add' _2155 (N.succ m) n) = (N.succ (add' _2155 m n)))) (NUMERAL (BIT1 (BIT1 (BIT0 (BIT1 (BIT0 (BIT1 0)))))))).
@@ -1244,7 +1250,7 @@ Qed.
 
 Lemma mul_def : N.mul = (@ε (arr N (arr N (arr N N'))) (fun mul' : N -> N -> N -> N => forall _2186 : N, (forall n : N, (mul' _2186 (NUMERAL N0) n) = (NUMERAL N0)) /\ (forall m : N, forall n : N, (mul' _2186 (N.succ m) n) = (N.add (mul' _2186 m n) n))) (NUMERAL (BIT0 (BIT1 (BIT0 (BIT1 (BIT0 (BIT1 0)))))))).
 Proof.
-  unfold NUMERAL. N_rec_align. lia. 
+  numsimp. N_rec_align. lia. 
 Qed.
 
 Lemma EXP_def : N.pow = (@ε (arr (prod N (prod N N)) (arr N (arr N N'))) (fun EXP' : (prod N (prod N N)) -> N -> N -> N => forall _2224 : prod N (prod N N), (forall m : N, EXP' _2224 m (NUMERAL N0) = NUMERAL (BIT1 N0)) /\ (forall m : N, forall n : N, (EXP' _2224 m (N.succ n)) = (N.mul m (EXP' _2224 m n)))) (@pair N (prod N N) (BIT1 (BIT0 (BIT1 (BIT0 (BIT0 (BIT0 (BIT1 N0))))))) (@pair N N (BIT0 (BIT0 (BIT0 (BIT1 (BIT1 (BIT0 (BIT1 0))))))) (BIT0 (BIT0 (BIT0 (BIT0 (BIT1 (BIT0 (BIT1 N0)))))))))).
@@ -1316,7 +1322,7 @@ Definition fact := N.peano_rect (fun _ => N) 1 (fun n r => N.succ n * r).
 
 Lemma FACT_def : fact = @ε ((prod N (prod N (prod N N))) -> N -> N) (fun FACT' : (prod N (prod N (prod N N))) -> N -> N => forall _2944 : prod N (prod N (prod N N)), ((FACT' _2944 (NUMERAL 0%N)) = (NUMERAL (BIT1 0%N))) /\ (forall n : N, (FACT' _2944 (N.succ n)) = (N.mul (N.succ n) (FACT' _2944 n)))) (@pair N (prod N (prod N N)) (NUMERAL (BIT0 (BIT1 (BIT1 (BIT0 (BIT0 (BIT0 (BIT1 0%N)))))))) (@pair N (prod N N) (NUMERAL (BIT1 (BIT0 (BIT0 (BIT0 (BIT0 (BIT0 (BIT1 0%N)))))))) (@pair N N (NUMERAL (BIT1 (BIT1 (BIT0 (BIT0 (BIT0 (BIT0 (BIT1 0%N)))))))) (NUMERAL (BIT0 (BIT0 (BIT1 (BIT0 (BIT1 (BIT0 (BIT1 0%N))))))))))).
 Proof.
-  unfold NUMERAL. N_rec_align. 
+  numsimp. N_rec_align. 
   intro n. unfold fact. now rewrite N.peano_rect_succ.
 Qed.
 
@@ -1459,13 +1465,13 @@ Qed.
 
 Lemma EVEN_def : N.Even = @ε ((prod N (prod N (prod N N))) -> N -> Prop) (fun EVEN' : (prod N (prod N (prod N N))) -> N -> Prop => forall _2603 : prod N (prod N (prod N N)), ((EVEN' _2603 (NUMERAL 0%N)) = True) /\ (forall n : N, (EVEN' _2603 (N.succ n)) = (~ (EVEN' _2603 n)))) (@pair N (prod N (prod N N)) (NUMERAL (BIT1 (BIT0 (BIT1 (BIT0 (BIT0 (BIT0 (BIT1 0%N)))))))) (@pair N (prod N N) (NUMERAL (BIT0 (BIT1 (BIT1 (BIT0 (BIT1 (BIT0 (BIT1 0%N)))))))) (@pair N N (NUMERAL (BIT1 (BIT0 (BIT1 (BIT0 (BIT0 (BIT0 (BIT1 0%N)))))))) (NUMERAL (BIT0 (BIT1 (BIT1 (BIT1 (BIT0 (BIT0 (BIT1 0%N))))))))))).
 Proof.
-  unfold NUMERAL. N_rec_align. 
+  numsimp. N_rec_align.
   exact (NEven0). exact (NEvenS).
 Qed.
 
 Lemma ODD_def: N.Odd = @ε ((prod N (prod N N)) -> N -> Prop) (fun ODD' : (prod N (prod N N)) -> N -> Prop => forall _2607 : prod N (prod N N), ((ODD' _2607 (NUMERAL 0%N)) = False) /\ (forall n : N, (ODD' _2607 (N.succ n)) = (~ (ODD' _2607 n)))) (@pair N (prod N N) (NUMERAL (BIT1 (BIT1 (BIT1 (BIT1 (BIT0 (BIT0 (BIT1 0%N)))))))) (@pair N N (NUMERAL (BIT0 (BIT0 (BIT1 (BIT0 (BIT0 (BIT0 (BIT1 0%N)))))))) (NUMERAL (BIT0 (BIT0 (BIT1 (BIT0 (BIT0 (BIT0 (BIT1 0%N)))))))))).
 Proof.
-  unfold NUMERAL. N_rec_align.
+  numsimp. N_rec_align.
   exact (NOdd0). exact (NOddS).
 Qed.
 
@@ -1502,7 +1508,7 @@ Proof. intro h. rewrite N.mul_comm. apply N.div_mul. exact h. Qed.
 Lemma NUMPAIR_INJ : forall x1 : N, forall y1 : N, forall x2 : N, forall y2 : N, ((NUMPAIR x1 y1) = (NUMPAIR x2 y2)) = ((x1 = x2) /\ (y1 = y2)).
 Proof.
   intros x1 y1 x2 y2. apply prop_ext. 2: intros [e1 e2]; subst; reflexivity.
-  unfold NUMPAIR, NUMERAL, BIT1, BIT0. rewrite double_0, succ_0, double_1.
+  unfold NUMPAIR. numfold. rewrite double_0, succ_0, double_1.
   intro e.
 
   destruct (classic (x1 < x2)) as [h|h]. rewrite lt2le in h.
@@ -1524,8 +1530,7 @@ Qed.
 
 Lemma NUMPAIR_nonzero x y : NUMPAIR x y <> 0.
 Proof.
-  unfold NUMPAIR, NUMERAL, BIT1, BIT0.
-  rewrite double_0, succ_0, double_1, N.mul_add_distr_l, N.mul_1_r. nia.
+  unfold NUMPAIR. lia.
 Qed.
 
 (****************************************************************************)
@@ -1581,13 +1586,7 @@ Proof. exact (eq_refl NUMFST). Qed.
 
 Lemma NUMFST_NUMPAIR x y : NUMFST (NUMPAIR x y) = x.
 Proof.
-  unfold NUMFST.
-  generalize (NUMERAL (BIT0 (BIT1 (BIT1 (BIT1 (BIT0 (BIT0 (BIT1 0))))))),
-     (NUMERAL (BIT1 (BIT0 (BIT1 (BIT0 (BIT1 (BIT0 (BIT1 0))))))),
-      (NUMERAL (BIT1 (BIT0 (BIT1 (BIT1 (BIT0 (BIT0 (BIT1 0))))))),
-       (NUMERAL (BIT0 (BIT1 (BIT1 (BIT0 (BIT0 (BIT0 (BIT1 0))))))),
-        (NUMERAL (BIT1 (BIT1 (BIT0 (BIT0 (BIT1 (BIT0 (BIT1 0))))))),
-          NUMERAL (BIT0 (BIT0 (BIT1 (BIT0 (BIT1 (BIT0 (BIT1 0)))))))))))).
+  unfold NUMFST. numsimp. generalize (78, (85, (77, (70, (83, 84))))).
   generalize (prod N (prod N (prod N (prod N (prod N N))))); intros A a.
   match goal with |- ε ?x _ _ = _ => set (Q := x); set (fst := ε Q) end.
   assert (i: exists x, Q x). exists (fun _ => NUMFST0). unfold Q. intros _. exists NUMSND0.
@@ -1616,13 +1615,7 @@ Proof. exact (eq_refl NUMSND). Qed.
 
 Lemma NUMSND_NUMPAIR x y : NUMSND (NUMPAIR x y) = y.
 Proof.
-  unfold NUMSND. 
-  generalize  (NUMERAL (BIT0 (BIT1 (BIT1 (BIT1 (BIT0 (BIT0 (BIT1 0))))))),
-     (NUMERAL (BIT1 (BIT0 (BIT1 (BIT0 (BIT1 (BIT0 (BIT1 0))))))),
-      (NUMERAL (BIT1 (BIT0 (BIT1 (BIT1 (BIT0 (BIT0 (BIT1 0))))))),
-       (NUMERAL (BIT1 (BIT1 (BIT0 (BIT0 (BIT1 (BIT0 (BIT1 0))))))),
-        (NUMERAL (BIT0 (BIT1 (BIT1 (BIT1 (BIT0 (BIT0 (BIT1 0))))))),
-         NUMERAL (BIT0 (BIT0 (BIT1 (BIT0 (BIT0 (BIT0 (BIT1 0)))))))))))).
+  unfold NUMSND. numsimp. generalize (78, (85, (77, (83, (78, 68))))).
   generalize (prod N (prod N (prod N (prod N (prod N N))))); intros A a.
   match goal with |- ε ?x _ _ = _ => set (Q := x); set (snd := ε Q) end.
   assert (i: exists x, Q x). exists (fun _ => NUMSND1). unfold Q. intros _.
@@ -1651,7 +1644,7 @@ Proof. rewrite N.even_spec. exists n. reflexivity. Qed.
 
 Lemma NUMLEFT_NUMSUM b n : NUMLEFT (NUMSUM b n) = b.
 Proof.
-  unfold NUMSUM, NUMERAL, BIT1, BIT0, NUMLEFT.
+  unfold NUMSUM, NUMLEFT. numfold.
   COND_intro ; rewrite double_0, succ_0, double_1 ;
   apply prop_ext ; intro H' ; try easy.
   - rewrite N.even_succ , N.odd_mul , N.odd_2. reflexivity.
@@ -1663,7 +1656,7 @@ Proof. lia. Qed.
 
 Lemma NUMRIGHT_NUMSUM b n : NUMRIGHT (NUMSUM b n) = n.
 Proof.
-  unfold NUMSUM, NUMERAL, BIT1, BIT0, NUMRIGHT.
+  unfold NUMSUM, NUMRIGHT. numfold.
   COND_intro ; rewrite double_0, succ_0, double_1.
   - rewrite N.even_succ, N.odd_mul, N.odd_2, succ_minus_1, NDIV_MULT.
     reflexivity. discriminate.
@@ -1675,7 +1668,7 @@ Proof. lia. Qed.
 
 Lemma NUMSUM_surjective n : exists b x, n = NUMSUM b x.
 Proof.
-  exists (NUMLEFT n). exists (NUMRIGHT n). unfold NUMSUM, NUMLEFT, NUMRIGHT, NUMERAL, BIT1, BIT0.
+  exists (NUMLEFT n). exists (NUMRIGHT n). unfold NUMSUM, NUMLEFT, NUMRIGHT. numfold.
   case_eq (N.even n); intro h ; COND_triv.
   - rewrite N.even_spec in h. destruct h as [k h]. subst n.
     rewrite NDIV_MULT. reflexivity. lia.
@@ -1962,8 +1955,7 @@ Qed.
 Lemma NUMSUM_INJ : forall b1 : Prop, forall x1 : N, forall b2 : Prop, forall x2 : N, ((NUMSUM b1 x1) = (NUMSUM b2 x2)) = ((b1 = b2) /\ (x1 = x2)).
 Proof.
   intros b1 x1 b2 x2. apply prop_ext. 2: intros [e1 e2]; subst; reflexivity.
-  unfold NUMSUM. unfold NUMERAL, BIT1, BIT0.
-  do 2 COND_intro.
+  unfold NUMSUM. do 2 COND_intro.
   1,4 : split ; try now apply prop_ext.
   all : lia.
 Qed.
