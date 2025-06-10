@@ -1,7 +1,7 @@
 HOL-Light definition of real numbers in Coq using N
 ---------------------------------------------------
 
-This [Coq](https://coq.inria.fr/) library contains an automatic translation of a subset of the [HOL-Light](https://github.com/jrh13/hol-light) base library [lib_hol.ml](https://github.com/jrh13/hol-light/blob/master/lib_hol.ml) up to the definition of real numbers in the file [real.ml](https://github.com/jrh13/hol-light/blob/master/real.ml), with various HOL-Light types and functions [mapped](https://github.com/Deducteam/coq-hol-light-real-with-N/blob/main/mappings.lp) to the corresponding types and functions of the Coq standard library so that, for instance, a HOL-Light theorem on HOL-Light natural numbers is translated to a Coq theorem on the Coq type N of natural numbers in base 2. The provided theorems can therefore be readily used within other Coq developments based on the Coq standard library. The translation has been done using [hol2dk](https://github.com/Deducteam/hol2dk) to extract and translate HOL-Light proofs to Lambdapi files, and [lambdapi](https://github.com/Deducteam/lambdapi) to translate Lambdapi files to Coq files.
+This [Rocq](https://rocq-prover.org/) library contains an automatic translation of a subset of the [HOL-Light](https://github.com/jrh13/hol-light) base library [lib_hol.ml](https://github.com/jrh13/hol-light/blob/master/lib_hol.ml) up to the definition of real numbers in the file [real.ml](https://github.com/jrh13/hol-light/blob/master/real.ml), with various HOL-Light types and functions [mapped](https://github.com/Deducteam/coq-hol-light-real-with-N/blob/main/mappings.lp) to the corresponding types and functions of the Rocq standard library so that, for instance, a HOL-Light theorem on HOL-Light natural numbers is translated to a Rocq theorem on the Rocq type N of natural numbers in base 2. The provided theorems can therefore be readily used within other Rocq developments based on the Rocq standard library. The translation has been done using [hol2dk](https://github.com/Deducteam/hol2dk) to extract and translate HOL-Light proofs to Lambdapi files, and [lambdapi](https://github.com/Deducteam/lambdapi) to translate Lambdapi files to Rocq files.
 
 This library is used as a basis for the alignment of real numbers in the much larger library [coq-hol-light](https://github.com/Deducteam/coq-hol-light) which contains a translation of more than 20,000 HOL-Light theorems on arithmetic, wellfounded relations, lists, real numbers, integers, basic set theory, permutations, group theory, matroids, metric spaces, homology, vectors, determinants, topology, convex sets and functions, paths, polytopes, Brouwer degree, derivatives, Clifford algebra, integration, measure theory, complex numbers and analysis, transcendental numbers, real analysis, complex line integrals, etc.
 
@@ -18,7 +18,7 @@ More types and functions are aligned in [coq-hol-light](https://github.com/Deduc
 
 **How to contribute?**
 
-You can easily contribute by proving the correctness of more mappings in Coq:
+You can easily contribute by proving the correctness of more mappings in Rocq:
 
 - Look in [terms.v](https://github.com/Deducteam/coq-hol-light-real-with-N/blob/main/terms.v) for the definition of a function symbol, say f, that you want to replace; note that it is followed by a lemma f_DEF stating what f is equal to.
 
@@ -26,7 +26,7 @@ You can easily contribute by proving the correctness of more mappings in Coq:
 
 - Create a [pull request](https://github.com/Deducteam/coq-hol-light-real-with-N/pulls).
 
-You can also propose to change the mapping of some type in [mappings.v](https://github.com/Deducteam/coq-hol-light-real-with-N/blob/main/mappings.v). Every HOL-Light type `A` is axiomatized as being isomorphic to the subset of elements `x` of some already defined type `B` that satisfies some property `p:B->Prop`. `A` can always be mapped to the Coq type `{x:B|p(x)}` (see [mappings.v](https://github.com/Deducteam/coq-hol-light-real-with-nat/blob/main/mappings.v)) but it is possible to map it to some more convenient type `A'` by defining two functions:
+You can also propose to change the mapping of some type in [mappings.v](https://github.com/Deducteam/coq-hol-light-real-with-N/blob/main/mappings.v). Every HOL-Light type `A` is axiomatized as being isomorphic to the subset of elements `x` of some already defined type `B` that satisfies some property `p:B->Prop`. `A` can always be mapped to the Rocq type `{x:B|p(x)}` (see [mappings.v](https://github.com/Deducteam/coq-hol-light-real-with-nat/blob/main/mappings.v)) but it is possible to map it to some more convenient type `A'` by defining two functions:
 
 - `mk:B->A'`
 
@@ -42,7 +42,7 @@ showing that `A'` is isomorphic to `{x:B|p(x)}`.
 
 **Axioms used**
 
-As HOL-Light is based on classical higher-order logic with choice, this library uses the following standard set of axioms in Coq:
+As HOL-Light is based on classical higher-order logic with choice, this library uses the following standard set of axioms in Rocq:
 
 ```
 Axiom classic : forall P:Prop, P \/ ~ P.
@@ -59,7 +59,7 @@ opam repo add coq-released https://coq.inria.fr/opam/released
 opam install coq-hol-light-real-with-N
 ```
 
-**Usage in a Coq file**
+**Usage in a Rocq file**
 
 ```
 Require Import HOLLight_Real_With_N.theorems.
