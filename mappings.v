@@ -104,7 +104,7 @@ Tactic Notation "exist" uconstr(x1) uconstr(x2) uconstr(x3) uconstr(x4) uconstr(
 (* Hilbert's ε operator. *)
 (****************************************************************************)
 
-Require Import Coq.Logic.ClassicalEpsilon.
+Require Import Stdlib.Logic.ClassicalEpsilon.
 
 Definition ε : forall {A : Type'}, (type A -> Prop) -> type A :=
   fun A P => epsilon (inhabits (el A)) P.
@@ -191,7 +191,7 @@ Proof.
   - exact(proj2 H).
 Qed.
 
-Require Import Coq.Logic.ClassicalFacts.
+Require Import Stdlib.Logic.ClassicalFacts.
 
 Lemma prop_degen : forall P, P = True \/ P = False.
 Proof.
@@ -426,7 +426,7 @@ Proof. exact (eq_refl False). Qed.
 Lemma hashek_def : True = True.
 Proof. exact (eq_refl True). Qed.
 
-Require Import Coq.Logic.ExtensionalityFacts.
+Require Import Stdlib.Logic.ExtensionalityFacts.
 
 Lemma ISO_def {A B : Type'} : (@is_inverse A B) = (fun _17569 : A -> B => fun _17570 : B -> A => (forall x : B, (_17569 (_17570 x)) = x) /\ (forall y : A, (_17570 (_17569 y)) = y)).
 Proof. ext f g. unfold is_inverse. apply prop_ext; tauto. Qed.
@@ -447,7 +447,7 @@ Qed.
 (* Alignment of subtypes. *)
 (*****************************************************************************)
 
-Require Import Coq.Logic.ProofIrrelevance.
+Require Import Stdlib.Logic.ProofIrrelevance.
 
 Section Subtype.
 
@@ -989,37 +989,6 @@ Definition NUM_REP := fun a : ind => forall NUM_REP' : ind -> Prop, (forall a' :
 Lemma NUM_REP_def : NUM_REP = (fun a : ind => forall NUM_REP' : ind -> Prop, (forall a' : ind, ((a' = IND_0) \/ (exists i : ind, (a' = (IND_SUC i)) /\ (NUM_REP' i))) -> NUM_REP' a') -> NUM_REP' a).
 Proof. exact (eq_refl NUM_REP). Qed.
 
-(* is NUM_REP' of any use ? *)
-Definition NUM_REP' := fun a : ind => forall P : ind -> Prop, (P IND_0 /\ forall i, P i -> P (IND_SUC i)) -> P a.
-
-Lemma NUM_REP_eq : NUM_REP = NUM_REP'.
-Proof.
-  ext a.
-  apply prop_ext; intros h P.
-  - intros [p0 ps].
-    apply h.
-    intros a' [i|i].
-    + rewrite i.
-      exact p0.
-    + destruct i as [b [e i]].
-      rewrite e.
-      apply ps.
-      exact i.
-  - intro i.
-    apply h.
-    split.
-    + apply i.
-      left.
-      reflexivity.
-    + intros b pb.
-      apply i.
-      right.
-      exists b.
-      split.
-        * reflexivity.
-        * exact pb.
-Qed.
-
 Inductive NUM_REP_ID : ind -> Prop :=
   | NUM_REP_ID_0 : NUM_REP_ID IND_0
   | NUM_REP_ID_S i : NUM_REP_ID i -> NUM_REP_ID (IND_SUC i).
@@ -1031,7 +1000,7 @@ Proof. symmetry. ind_align. Qed.
 (* Alignment of the type of natural numbers. *)
 (****************************************************************************)
 
-Require Import Coq.NArith.BinNat Coq.micromega.Lia.
+Require Import Stdlib.NArith.BinNat Stdlib.micromega.Lia.
 
 Open Scope N_scope.
 
@@ -1230,7 +1199,7 @@ Ltac numfold := unfold NUMERAL, BIT1, BIT0 in *.
 Ltac numsimp := numfold ; simpl.
 
 (* automatically unfold them before lia. *)
-Ltac lia := numfold ; Coq.micromega.Lia.lia.
+Ltac lia := numfold ; Stdlib.micromega.Lia.lia.
 
 Lemma BIT1_def : BIT1 = (fun _2143 : N => N.succ (BIT0 _2143)).
 Proof. exact (eq_refl BIT1). Qed.
@@ -1713,9 +1682,9 @@ Qed.
 HOL Light: non-empty subsets has minimal, Coq: has induction *)
 (****************************************************************************)
 
-Require Import Coq.Init.Wf.
+Require Import Corelib.Init.Wf.
 
-Definition well_founded := Coq.Init.Wf.well_founded.
+Definition well_founded := Corelib.Init.Wf.well_founded.
 
 Lemma WF_def {A : Type'} : (@well_founded A) = (fun _6923 : A -> A -> Prop => forall P : A -> Prop, (exists x : A, P x) -> exists x : A, (P x) /\ (forall y : A, (_6923 y x) -> ~ (P y))).
 Proof.
@@ -1757,7 +1726,7 @@ Qed.
 (* Alignment of  measures, that is functions A -> N which creates a wf order by inverse image *)
 (****************************************************************************)
 
-Require Import Coq.Arith.PeanoNat.
+Require Import Stdlib.Arith.PeanoNat.
 
 Lemma inj_lt m n: (N.to_nat m > N.to_nat n)%nat = (n < m).
 Proof.
@@ -1895,7 +1864,7 @@ Definition Fnil {A : Type} : N -> recspace A := fun _ => BOTTOM.
 Definition FCONS {A : Type} (a : A) (f: N -> A) (n : N) : A :=
   N.recursion a (fun n _ => f n) n.
 
-Require Import Coq.Lists.List. Import ListNotations.
+Require Import Stdlib.Lists.List. Import ListNotations.
 
 Fixpoint Flist {A : Type} (l : list (recspace A)) : recspaceseq A :=
   match l with
@@ -1916,8 +1885,7 @@ Fixpoint _dest_rec {A : Type'} (r : recspace A) : N -> A -> Prop :=
   | BOTTOM => ZBOT
   | CONSTR0 n a (INJSEQ f) => ZCONSTR n a (fun m => _dest_rec (f m)) end.
 
-Definition finv [A B : Type'] (f : A -> B) : B -> A :=
-  fun y => ε (fun x => f x = y).
+Definition finv [A B : Type'] (f : A -> B) : B -> A := fun y => ε (fun x => f x = y).
 
 Definition _mk_rec {A : Type'} : (N -> A -> Prop) -> recspace A := finv _dest_rec.
 
@@ -2826,7 +2794,7 @@ Qed.
 (* Note the mismatch between Coq's ascii which takes booleans as arguments
 and HOL-Light's char which takes propositions as arguments. *)
 
-Require Import Coq.Strings.Ascii.
+Require Import Stdlib.Strings.Ascii.
 
 Definition ascii' := {| type := ascii; el := zero |}.
 Canonical ascii'.
@@ -3041,7 +3009,7 @@ Add Relation _ nadd_eq
     transitivity proved by nadd_eq_trans
 as nadd_eq_rel.
 
-Require Import Coq.Setoids.Setoid.
+Require Import Stdlib.Setoids.Setoid.
 
 Add Morphism nadd_add
     with signature nadd_eq ==> nadd_eq ==> nadd_eq
