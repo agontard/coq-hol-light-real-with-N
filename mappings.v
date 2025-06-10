@@ -1801,34 +1801,12 @@ Definition ZRECSPACE {A:Type'} := @_ZRECSPACE A.
 Lemma ZRECSPACE_def {A : Type'} : (@ZRECSPACE A) = (fun a : N -> A -> Prop => forall ZRECSPACE' : (N -> A -> Prop) -> Prop, (forall a' : N -> A -> Prop, ((a' = (@ZBOT A)) \/ (exists c : N, exists i : A, exists r : N -> N -> A -> Prop, (a' = (@ZCONSTR A c i r)) /\ (forall n : N, ZRECSPACE' (r n)))) -> ZRECSPACE' a') -> ZRECSPACE' a).
 Proof. ind_align. Qed.
 
-Unset Elimination Schemes.
 Inductive recspace (A : Type) :=
 | BOTTOM : recspace A
-| CONSTR0 : N -> A -> recspaceseq A -> recspace A
-with recspaceseq (A : Type) :=
-| INJSEQ : (N -> recspace A) -> recspaceseq A.
-(* Defining recspaceseq so as to define a coercion from list (recspace A) to it. *)
-Set Elimination Schemes.
+| CONSTR : N -> A -> (N -> recspace A) -> recspace A.
 
-Arguments CONSTR0 [A] _ _ _.
+Arguments CONSTR [A] _ _ _.
 Arguments BOTTOM {A}.
-Arguments INJSEQ {A} _.
-
-Definition CONSTR [A : Type] n (a : A) s := CONSTR0 n a (INJSEQ s).
-
-Section recspace_ind.
-Variables (A : Type) (P : recspace A -> Prop)
-  (H : P BOTTOM)
-  (H' : forall n a s, (forall n', P (s n')) -> P (CONSTR n a s)).
-
-Fixpoint recspace_ind (r : recspace A) : P r :=
-  match r return P r with
-  | BOTTOM => H
-  | CONSTR0 n a (INJSEQ s) => H' n a s (fun n' => recspace_ind (s n')) end.
-End recspace_ind.
-
-Definition INJSEQINV {A : Type} (s : recspaceseq A) :=
-  match s with INJSEQ s => s end.
 
 Definition recspace' (A : Type') := {|type := recspace A ; el := BOTTOM|}.
 Canonical recspace'.
@@ -1859,19 +1837,16 @@ Canonical recspace'.
   - nil is the first constructor, so nil = CONSTR 0 (ε (fun _ => True)) Fnil.
   - cons is the second one, so cons a l = CONSTR 1 a (FCONS l Fnil). *)
 
+
 Definition Fnil {A : Type} : N -> recspace A := fun _ => BOTTOM.
 
 Definition FCONS {A : Type} (a : A) (f: N -> A) (n : N) : A :=
   N.recursion a (fun n _ => f n) n.
 
-Require Import Stdlib.Lists.List. Import ListNotations.
-
-Fixpoint Flist {A : Type} (l : list (recspace A)) : recspaceseq A :=
-  match l with
-  | [] => INJSEQ Fnil
-  | a::l => INJSEQ (FCONS a (INJSEQINV (Flist l))) end.
-
-Coercion Flist : list >-> recspaceseq.
+Notation "[ ]_rec" := Fnil (format "[ ]_rec").
+Notation "[ x ]_rec f" := (FCONS (f x) Fnil).
+Notation "[ x ; y ; .. ; z ]_rec f" := (FCONS (f x) (FCONS (f y) .. (FCONS (f z) Fnil) ..))
+  (format "[ '[' x ; '/' y ; '/' .. ; '/' z ']' ]_rec f").
 
 Lemma FCONS_def {A : Type'} : @FCONS A = @ε ((prod N (prod N (prod N (prod N N)))) -> A -> (N -> A) -> N -> A) (fun FCONS' : (prod N (prod N (prod N (prod N N)))) -> A -> (N -> A) -> N -> A => forall _17460 : prod N (prod N (prod N (prod N N))), (forall a : A, forall f : N -> A, (FCONS' _17460 a f (NUMERAL N0)) = a) /\ (forall a : A, forall f : N -> A, forall n : N, (FCONS' _17460 a f (N.succ n)) = (f n))) (@pair N (prod N (prod N (prod N N))) (NUMERAL (BIT0 (BIT1 (BIT1 (BIT0 (BIT0 (BIT0 (BIT1 0)))))))) (@pair N (prod N (prod N N)) (NUMERAL (BIT1 (BIT1 (BIT0 (BIT0 (BIT0 (BIT0 (BIT1 0)))))))) (@pair N (prod N N) (NUMERAL (BIT1 (BIT1 (BIT1 (BIT1 (BIT0 (BIT0 (BIT1 0)))))))) (@pair N N (NUMERAL (BIT0 (BIT1 (BIT1 (BIT1 (BIT0 (BIT0 (BIT1 0)))))))) (NUMERAL (BIT1 (BIT1 (BIT0 (BIT0 (BIT1 (BIT0 (BIT1 0)))))))))))).
 Proof.
@@ -1883,7 +1858,7 @@ Qed.
 Fixpoint _dest_rec {A : Type'} (r : recspace A) : N -> A -> Prop :=
   match r with
   | BOTTOM => ZBOT
-  | CONSTR0 n a (INJSEQ f) => ZCONSTR n a (fun m => _dest_rec (f m)) end.
+  | CONSTR n a f => ZCONSTR n a (fun m => _dest_rec (f m)) end.
 
 Definition finv [A B : Type'] (f : A -> B) : B -> A := fun y => ε (fun x => f x = y).
 
@@ -2337,8 +2312,8 @@ Canonical sum'.
 
 Definition _dest_sum : forall {A B : Type'}, sum A B -> recspace (prod A B) :=
 fun A B p => match p with
-| inl a => CONSTR0 (NUMERAL N0) (a , ε (fun _ => True)) []
-| inr b => CONSTR0 (N.succ (NUMERAL N0)) (ε (fun _ => True) , b) []
+| inl a => CONSTR (NUMERAL N0) (a , ε (fun _ => True)) []_rec
+| inr b => CONSTR (N.succ (NUMERAL N0)) (ε (fun _ => True) , b) []_rec
 end.
 
 Definition _mk_sum {A B : Type'} := finv (@_dest_sum A B).
@@ -2368,8 +2343,8 @@ Canonical option'.
 Definition _dest_option : forall {A : Type'}, option A -> recspace A :=
   fun A o =>
     match o with
-    | None => CONSTR0 (NUMERAL N0) (ε (fun _ => True)) []
-    | Some a => CONSTR0 (N.succ (NUMERAL N0)) a []
+    | None => CONSTR (NUMERAL N0) (ε (fun _ => True)) []_rec
+    | Some a => CONSTR (N.succ (NUMERAL N0)) a []_rec
     end.
 
 Definition _mk_option {A : Type'} := finv (@_dest_option A).
@@ -2405,10 +2380,12 @@ Proof. constr_align (@axiom_13 A). Qed.
 Definition list' (A : Type') := {| type := list A; el := nil |}.
 Canonical list'.
 
+Require Import Stdlib.Lists.List.
+
 Fixpoint _dest_list {A : Type'} l : recspace A :=
   match l with
-  | [] => CONSTR0 (NUMERAL N0) (ε (fun _ => True)) []
-  | a::l => CONSTR0 (N.succ (NUMERAL N0)) a [_dest_list l]
+  | nil => CONSTR (NUMERAL N0) (ε (fun _ => True)) []_rec
+  | a::l => CONSTR (N.succ (NUMERAL N0)) a [l]_rec _dest_list
   end.
 
 Definition _mk_list {A : Type'} := finv (@_dest_list A).
@@ -2448,7 +2425,7 @@ Proof. constr_align (@axiom_15 A). Qed.
 Inductive is_nil (A : Type) : list A -> Prop := nil_is_nil : is_nil A nil.
 
 Lemma COND_list {A : Type} {B : Type'} {l : list A} {x y : B} : 
-  COND (l=[]) x y = match l with [] => x | _ => y end.
+  COND (l=nil) x y = match l with nil => x | _ => y end.
 Proof.
   now COND_intro ; destruct l.
 Qed.
@@ -2469,7 +2446,7 @@ Qed.
 
 Fixpoint lengthN {A : Type} (l : list A) :=
 match l with
-|[] => N0
+|nil => N0
 |_::l => N.succ (lengthN l) end.
 
 (* in case it might be useful ? *)
@@ -2801,9 +2778,9 @@ Canonical ascii'.
 
 Definition _dest_char : ascii -> recspace (Prop*(Prop*(Prop*(Prop*(Prop*(Prop*(Prop*(Prop)))))))) :=
   fun a => match a with
-  | Ascii a0 a1 a2 a3 a4 a5 a6 a7 => CONSTR0 0
+  | Ascii a0 a1 a2 a3 a4 a5 a6 a7 => CONSTR 0
     ((fun a0 a1 a2 a3 a4 a5 a6 a7 : Prop => (a0,(a1,(a2,(a3,(a4,(a5,(a6,(a7)))))))))
-    a0 a1 a2 a3 a4 a5 a6 a7) nil end.
+    a0 a1 a2 a3 a4 a5 a6 a7) []_rec end.
 
 Definition _mk_char := finv _dest_char.
 
