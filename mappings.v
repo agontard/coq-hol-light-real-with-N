@@ -1844,9 +1844,9 @@ Definition FCONS {A : Type} (a : A) (f: N -> A) (n : N) : A :=
   N.recursion a (fun n _ => f n) n.
 
 Notation "[ ]_rec" := Fnil (format "[ ]_rec").
-Notation "[ x ]_rec f" := (FCONS (f x) Fnil).
-Notation "[ x ; y ; .. ; z ]_rec f" := (FCONS (f x) (FCONS (f y) .. (FCONS (f z) Fnil) ..))
-  (format "[ '[' x ; '/' y ; '/' .. ; '/' z ']' ]_rec f").
+Notation "[ x ]_rec" := (FCONS x Fnil).
+Notation "[ x ; y ; .. ; z ]_rec" := (FCONS x (FCONS y .. (FCONS z Fnil) ..))
+  (format "[ '[' x ; '/' y ; '/' .. ; '/' z ']' ]_rec").
 
 Lemma FCONS_def {A : Type'} : @FCONS A = @ε ((prod N (prod N (prod N (prod N N)))) -> A -> (N -> A) -> N -> A) (fun FCONS' : (prod N (prod N (prod N (prod N N)))) -> A -> (N -> A) -> N -> A => forall _17460 : prod N (prod N (prod N (prod N N))), (forall a : A, forall f : N -> A, (FCONS' _17460 a f (NUMERAL N0)) = a) /\ (forall a : A, forall f : N -> A, forall n : N, (FCONS' _17460 a f (N.succ n)) = (f n))) (@pair N (prod N (prod N (prod N N))) (NUMERAL (BIT0 (BIT1 (BIT1 (BIT0 (BIT0 (BIT0 (BIT1 0)))))))) (@pair N (prod N (prod N N)) (NUMERAL (BIT1 (BIT1 (BIT0 (BIT0 (BIT0 (BIT0 (BIT1 0)))))))) (@pair N (prod N N) (NUMERAL (BIT1 (BIT1 (BIT1 (BIT1 (BIT0 (BIT0 (BIT1 0)))))))) (@pair N N (NUMERAL (BIT0 (BIT1 (BIT1 (BIT1 (BIT0 (BIT0 (BIT1 0)))))))) (NUMERAL (BIT1 (BIT1 (BIT0 (BIT0 (BIT1 (BIT0 (BIT1 0)))))))))))).
 Proof.
@@ -2385,7 +2385,7 @@ Require Import Stdlib.Lists.List.
 Fixpoint _dest_list {A : Type'} l : recspace A :=
   match l with
   | nil => CONSTR (NUMERAL N0) (ε (fun _ => True)) []_rec
-  | a::l => CONSTR (N.succ (NUMERAL N0)) a [l]_rec _dest_list
+  | a::l => CONSTR (N.succ (NUMERAL N0)) a [_dest_list l]_rec
   end.
 
 Definition _mk_list {A : Type'} := finv (@_dest_list A).
