@@ -408,6 +408,54 @@ Definition COND_dep (Q: Prop) (C: Type) (f1: Q -> C) (f2: ~Q -> C) : C :=
   end.
 
 (****************************************************************************)
+(* Alignment of partial functions *)
+(****************************************************************************)
+
+(* Whenever functions defined in HOL-Light are only defined in some specific cases
+   with ε, it can be defined in Rocq with a COND, to have a meaningful value
+   for these specific cases and default to the default ε-chosen function's
+   value elsewhere. For example, functions defined on finite sets.
+
+   align_ε_COND works similarly to align_ε' in this case, with restraining
+   uniqueness to the relevant cases for the function *)
+
+Lemma align_ε_COND1 {A B : Type'}
+  (Q : A -> Prop) (f : A -> B) (P : (A -> B) -> Prop) :
+  P f ->
+  (forall f', P f -> P f' -> forall x, Q x -> f x = f' x) ->
+  forall x, COND (Q x) (f x) (ε P x) = ε P x.
+Proof.
+  intros Hf Hunique x. COND_intro ; auto. apply Hunique ; auto.
+  apply ε_spec. now exists f.
+Qed.
+
+Lemma align_ε_COND2 {A B C : Type'}
+  (Q : (A -> B -> Prop)) (f : A -> B -> C) (P : (A -> B -> C) -> Prop) :
+  P f ->
+  (forall f', P f -> P f' -> forall x y, Q x y -> f x y = f' x y) ->
+  forall x y, COND (Q x y) (f x y) (ε P x y) = ε P x y.
+Proof.
+  intros Hf Hunique x y. COND_intro ; auto. apply Hunique ; auto.
+  apply ε_spec. now exists f.
+Qed.
+
+Lemma align_ε_COND3 {A B C D : Type'}
+  (Q : (A -> B -> C -> Prop)) (f : A -> B -> C -> D) (P : (A -> B -> C -> D) -> Prop) :
+  P f ->
+  (forall f', P f -> P f' -> forall x y z, Q x y z -> f x y z = f' x y z) ->
+  forall x y z, COND (Q x y z) (f x y z) (ε P x y z) = ε P x y z.
+Proof.
+  intros Hf Hunique x y z. COND_intro ; auto. apply Hunique ; auto.
+  apply ε_spec. now exists f.
+Qed.
+
+Ltac align_ε_COND :=
+  lazymatch goal with
+  | |- COND ?P ?f _ = ε _ ?x => apply (align_ε_COND1 (fun x => P) (fun x => f))
+  | |- COND ?P ?f _ = ε _ ?x ?y => apply (align_ε_COND2 (fun x y => P) (fun x y => f))
+  | |- COND ?P ?f _ = ε _ ?x ?y ?z => apply (align_ε_COND3 (fun x y z => P) (fun x y z => f)) end.
+
+(****************************************************************************)
 (* Miscellaneous. *)
 (****************************************************************************)
 
