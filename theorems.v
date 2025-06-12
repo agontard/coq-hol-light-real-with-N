@@ -1,5 +1,5 @@
 Require Import Stdlib.NArith.BinNat HOLLight_Real_With_N.type HOLLight_Real_With_N.mappings.
-Require Import HOLLight_Real_With_N.hol_upto_real_terms.
+Require Import HOLLight_Real_With_N.terms.
 Axiom thm_T_DEF : True = ((fun p : Prop => p) = (fun p : Prop => p)).
 Axiom thm_AND_DEF : and = (fun p : Prop => fun q : Prop => (fun f : Prop -> Prop -> Prop => f p q) = (fun f : Prop -> Prop -> Prop => f True True)).
 Axiom thm_IMP_DEF : imp = (fun p : Prop => fun q : Prop => (p /\ q) = p).
