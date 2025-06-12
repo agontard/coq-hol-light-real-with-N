@@ -447,10 +447,14 @@ Proof.
 Qed.
 
 Ltac align_ε_ifp :=
+  lazymatch goal with (* helping with pattern matching *)
+  | |- _ = _ _ ?x => revert x
+  | |- _ = _ _ ?x ?y => revert x y
+  | |- _ = _ _ ?x ?y ?z => revert x y z end ;
   lazymatch goal with
-  | |- COND ?P ?f _ = ε _ ?x => apply (align_ε_ifp1 (fun x => P) (fun x => f))
-  | |- COND ?P ?f _ = ε _ ?x ?y => apply (align_ε_ifp2 (fun x y => P) (fun x y => f))
-  | |- COND ?P ?f _ = ε _ ?x ?y ?z => apply (align_ε_ifp3 (fun x y z => P) (fun x y z => f)) end.
+  | |- forall x, COND ?P ?f _ = ε _ x => apply (align_ε_ifp1 (fun x => P) (fun x => f))
+  | |- forall x y, COND ?P ?f _ = ε _ x y => apply (align_ε_ifp2 (fun x y => P) (fun x y => f))
+  | |- forall x y z, COND ?P ?f _ = ε _ x y z => apply (align_ε_ifp3 (fun x y z => P) (fun x y z => f)) end.
 
 (****************************************************************************)
 (* Miscellaneous. *)
