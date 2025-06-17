@@ -20,9 +20,9 @@ More types and functions are aligned in [coq-hol-light](https://github.com/Deduc
 
 You can easily contribute by proving the correctness of more mappings in Rocq:
 
-- Look in [terms.v](https://github.com/Deducteam/coq-hol-light-real-with-N/blob/main/terms.v) for the definition of a function symbol, say f, that you want to replace; note that it is followed by a lemma f_DEF stating what f is equal to.
+- Look in [terms.v](https://github.com/Deducteam/coq-hol-light-real-with-N/blob/main/terms.v) for the definition of a function symbol, say f, that you want to replace; note that it is followed by a lemma f_def stating what f is equal to.
 
-- Copy and paste in [mappings.v](https://github.com/Deducteam/coq-hol-light-real-with-N/blob/main/mappings.v) the lemma f_DEF, and try to prove it if f is replaced by your own function.
+- Copy and paste in [mappings.v](https://github.com/Deducteam/coq-hol-light-real-with-N/blob/main/mappings.v) the lemma f_def, and try to prove it if f is replaced by your own function.
 
 - Create a [pull request](https://github.com/Deducteam/coq-hol-light-real-with-N/pulls).
 
