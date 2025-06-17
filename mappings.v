@@ -330,6 +330,9 @@ Definition COND {A : Type'} (P : Prop) (x y : A) :=
 
 Notation "'ifp' P 'then' x 'else' y" := (COND P x y) (at level 200).
 
+Lemma COND_def {A : Type'} : (@COND A) = (fun t : Prop => fun t1 : A => fun t2 : A => @ε A (fun x : A => ((t = True) -> x = t1) /\ ((t = False) -> x = t2))).
+Proof. ext P x y. now rewrite is_True, is_False. Qed.
+
 (* The following are useful tools to work with COND :
    - Tactic ifp_triv replaces [ifp P then x else y] in the goal with either x or y
      assuming P or ~P is derivable with easy.
