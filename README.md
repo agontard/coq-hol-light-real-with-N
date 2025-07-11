@@ -1,5 +1,5 @@
-HOL-Light definition of real numbers in Coq using N
----------------------------------------------------
+HOL-Light definition of real numbers in Rocq using N
+----------------------------------------------------
 
 This [Rocq](https://rocq-prover.org/) library contains an automatic translation of a subset of the [HOL-Light](https://github.com/jrh13/hol-light) base library [lib_hol.ml](https://github.com/jrh13/hol-light/blob/master/lib_hol.ml) up to the definition of real numbers in the file [real.ml](https://github.com/jrh13/hol-light/blob/master/real.ml), with various HOL-Light types and functions [mapped](https://github.com/Deducteam/coq-hol-light-real-with-N/blob/main/mappings.lp) to the corresponding types and functions of the Rocq standard library so that, for instance, a HOL-Light theorem on HOL-Light natural numbers is translated to a Rocq theorem on the Rocq type N of natural numbers in base 2. The provided theorems can therefore be readily used within other Rocq developments based on the Rocq standard library. The translation has been done using [hol2dk](https://github.com/Deducteam/hol2dk) to extract and translate HOL-Light proofs to Lambdapi files, and [lambdapi](https://github.com/Deducteam/lambdapi) to translate Lambdapi files to Rocq files.
 
