@@ -9,7 +9,7 @@ dev-repo: "git+https://github.com/Deducteam/coq-hol-light-real.git"
 bug-reports: "https://github.com/Deducteam/coq-hol-light-real/issues"
 doc: "https://github.com/Deducteam/coq-hol-light-real"
 maintainer: "frederic.blanqui@inria.fr"
-authors: ["Frédéric Blanqui"]
+authors: ["https://github.com/Deducteam/coq-hol-light-real-with-N/blob/main/AUTHORS.md"]
 license: "CeCILL-2.1"
 depends: [
   "rocq-prover" {>= "9.0"}
@@ -18,7 +18,7 @@ build: [make "-j%{jobs}%"]
 install: [make "install"]
 tags: [
   "logpath:HOLLight_Real_With_N"
-  "date:2025-06-17"
+  "date:2025-07-11"
   "category:Math/Arith/Misc"
   "category:Math/Arith/Real numbers"
   "keyword:HOL-Light"
