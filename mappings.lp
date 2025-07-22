@@ -4,7 +4,7 @@ replaced by the given Coq expressions. */
 
 // primitive types
 builtin "Type'" ≔ Set;
-builtin "el" ≔ el;
+builtin "point" ≔ el;
 builtin "Prop" ≔ bool;
 builtin "arr" ≔ fun;
 
@@ -44,23 +44,23 @@ builtin "conj" ≔ ∧ᵢ;
 builtin "proj1" ≔ ∧ₑ₁;
 builtin "proj2" ≔ ∧ₑ₂;
 builtin "or_intro1" ≔ ∨ᵢ₁;
-builtin "or_intro2" ≔ ∨ᵢ₂;
+builtin "or_intror" ≔ ∨ᵢ₂;
 builtin "or_elim" ≔ ∨ₑ;
 builtin "ex_intro" ≔ ∃ᵢ;
 builtin "ex_elim" ≔ ∃ₑ;
 
 // HOL-Light rules
-builtin "eq_refl" ≔ REFL;
+builtin "REFL" ≔ REFL;
 builtin "EQ_MP" ≔ EQ_MP;
 builtin "MK_COMB" ≔ MK_COMB;
-builtin "eq_trans" ≔ TRANS;
-builtin "eq_sym" ≔ SYM;
+builtin "ssrfun.etrans" ≔ TRANS;
+builtin "ssrfun.esym" ≔ SYM;
 
 // HOL-Light axioms
 builtin "ε" ≔ ε;
 builtin "axiom_0" ≔ axiom_0;
 builtin "axiom_1" ≔ axiom_1;
-builtin "fun_ext" ≔ fun_ext;
+builtin "funext" ≔ fun_ext;
 builtin "prop_ext" ≔ prop_ext;
 
 // miscellaneous
@@ -68,7 +68,7 @@ builtin "COND" ≔ COND;
 builtin "COND_def" ≔ COND_def;
 builtin "eq" ≔ GEQ;
 builtin "GEQ_def" ≔ GEQ_def;
-builtin "ExtensionalityFacts.is_inverse" ≔ ISO;
+builtin "cancel2" ≔ ISO;
 builtin "ISO_def" ≔ ISO_def;
 
 // unit type
@@ -230,7 +230,7 @@ builtin "ALL_def" ≔ ALL_def;
 builtin "List.ForallOrdPairs" ≔ PAIRWISE;
 builtin "PAIRWISE_def" ≔ PAIRWISE_def;
 builtin "FILTER" ≔ FILTER;
-builtin "FILTER_def" ≔ FILTER_def;
+builtin "_FILTER_def" ≔ FILTER_def;
 builtin "List.In" ≔ MEM;
 builtin "MEM_def" ≔ MEM_def;
 builtin "repeatN" ≔ REPLICATE;
