@@ -603,7 +603,8 @@ Qed.
 (* _dest_inj proves that _dest is injective by double induction.
    Can fail when the induction principle isn't suited.
    Only works for non mutually defined types. *)
-Ltac _dest_inj :=
+
+Ltac _dest_inj_inductive :=
   match goal with |- forall x x', _ => let e := fresh in
     induction x ; induction x' ; simpl ; intro e ;
     (* e is of the form "CONSTR n a f = CONSTR n' a' f'", so inversion
@@ -619,10 +620,11 @@ Ltac _dest_inj :=
                                                    t = t' from et *)
     end end.
 
-(* As long as _mk_T is defined as finv _dest_T, _mk_dest_rec will
+(* As long as _mk_T is defined as finv _dest_T, _mk_dest_inductive will
    transform a goal of the form [forall x, (_mk_T (_dest_T x)) = x] into
    a goal stating injectivity of _dest_T thanks to finv_inv_l, then try to apply _dest_inj. *)
-Ltac _mk_dest_rec := finv_inv_l ; try _dest_inj.
+
+Ltac _mk_dest_inductive := finv_inv_l ; try _dest_inj_inductive.
 
 (* Try to solve a goal of the form [forall r, P r = (_dest_T (_mk_T r)) = r)]
    for P defining the subset of recspace A with which the defined type(s) are
@@ -634,7 +636,8 @@ Ltac _mk_dest_rec := finv_inv_l ; try _dest_inj.
    except that [exists x, _dest_T x = r] is not inductive so we are rather inducting on x.
    Compared to ind_align, we do not have access to the constructor tactic to automatically
    find the correct constructor so it currently needs to be done by hand. *)
-Ltac _dest_mk_rec :=
+
+Ltac _dest_mk_inductive :=
   let H := fresh in 
   let x := fresh "x" in 
   apply finv_inv_r ;
@@ -652,9 +655,11 @@ Ltac _dest_mk_rec :=
 (* - Finally, prove the definition of all constructors ( the lemmas _123456_def and C_def
      right under their definition in T_terms.v, replacing them with the new definition ).
      constr_align automatically proves _123456_def (afterwards, C_def is just reflexivity) : *)
+
 Ltac fresh_ext := let x := fresh "x" in ext x.
 Ltac constr_align H := (* Takes as argument the lemma [forall x, _mk_T (_dest_T x) = x].
                           Requires explicit type arguments. *)
+
   repeat fresh_ext ; match goal with |- ?x = _ => apply (eq_sym (H x)) end.
 
 
@@ -710,20 +715,24 @@ Ltac instance_uniqueness := let instance1 := fresh in
   | ?f _ _ _ = _ => unfold f in eq
   | ?f _ _ _ _ = _ => unfold f in eq end ;
   destruct instance1,instance2 ; simpl in eq ;
-  repeat rewrite paireqE in eq ; revert_keep eq ;
-  full_destruct ; blindrewrite ; clearall ;
+  revert_keep eq ; inversion_clear eq ;
   intros ; f_equal ; apply proof_irrelevance.
 
 (* Combine it with finv_inv_l. *)
 
-Ltac _mk_dest_record := finv_inv_l ; instance_uniqueness.
+Ltac _mk_dest_inductiveord := finv_inv_l ; instance_uniqueness.
 
-(* finv_inv_r gives us two goals, we can only automate one :
+(* tries proving [H1 /\ ... /\ Hn -> P] with hypothesis [H1 -> ... -> Hn -> P]
+   or the converse. *)
+
+Ltac and_arrow := hnf ; intros ; try match goal with H : _ |- _ => now apply H end.
+
+(* finv_inv_r gives us two goals, we can only fully automate one :
    [exists r' : T, _dest r' = r -> (P1 /\ P2 /\ ... /\ Pn') r]
    which is simply done by rewriting the hypothesis, and destructing r'
    to get its fields which should contain the required proof.  *)
 
-Ltac _dest_mk_record :=
+Ltac _dest_mk_inductiveord :=
   intros ; apply finv_inv_r ;
   [ try match goal with
     | |- ?P _ -> _ => unfold P
@@ -738,14 +747,22 @@ Ltac _dest_mk_record :=
     | |- (exists _, ?f _ _ _ _  = _) -> _ => unfold f end ; 
     let r := fresh in
     intros [r <-] ; clearall ; destruct r ;
-    repeat (split ; auto) ; simpl ].
+    repeat (and_arrow ; split) ; and_arrow ; simpl ].
 
 (* The other goal is the opposite direction,
-   and it is solvable by
-   [ unshelve eexists {|
-     T1 := r1 ;
-     ... ;
-     Tn := rn |} ; auto. ] which is sadly not automatable with Rocq alone. *)
+   for which it is required to provide an instance of the Rocq record,
+   which is sadly not automatable with Rocq alone.
+   The following tactic automates everything but require as input
+   a uconstr of the form {| F1 := fst r ; ... ; Fn := snd (... (snd r)) |},
+   explicitly giving all non-Prop fields.  *)
+
+Ltac destruct_tuple r := let b := fresh in
+  destruct r as (?a,b) ; try destruct_tuple b.
+
+Tactic Notation "record_exists" uconstr(uwitness) :=
+  unshelve eexists uwitness ;
+  and_arrow ;
+  try match goal with |- _ = ?r => now try destruct_tuple r end.
 
 (* In case the Prop fields are not the same as the HOL_Light ones,
    we will be left with proving their double implication. *)
@@ -2455,11 +2472,11 @@ end.
 Definition _mk_sum {A B : Type'} := finv (@_dest_sum A B).
 
 Lemma axiom_11 {A B : Type'} : forall (a : sum A B), (@_mk_sum A B (@_dest_sum A B a)) = a.
-Proof. _mk_dest_rec. Qed.
+Proof. _mk_dest_inductive. Qed.
 
 Lemma axiom_12 : forall {A B : Type'} (r : recspace (prod A B)), ((fun a : recspace (prod A B) => forall sum' : (recspace (prod A B)) -> Prop, (forall a' : recspace (prod A B), ((exists a'' : A, a' = ((fun a''' : A => @CONSTR (prod A B) (NUMERAL 0) (@pair A B a''' (@ε B (fun v : B => True))) (fun n : N => @BOTTOM (prod A B))) a'')) \/ (exists a'' : B, a' = ((fun a''' : B => @CONSTR (prod A B) (N.succ (NUMERAL N0)) (@pair A B (@ε A (fun v : A => True)) a''') (fun n : N => @BOTTOM (prod A B))) a''))) -> sum' a') -> sum' a) r) = ((@_dest_sum A B (@_mk_sum A B r)) = r).
 Proof.
-  intros A B r. _dest_mk_rec.
+  intros A B r. _dest_mk_inductive.
   now exists (inl x0). now exists (inr x0).
 Qed.
 
@@ -2486,7 +2503,7 @@ Definition _dest_option : forall {A : Type'}, option A -> recspace A :=
 Definition _mk_option {A : Type'} := finv (@_dest_option A).
 
 Lemma axiom_13 {A : Type'} : forall (a : option A), (@_mk_option A (@_dest_option A a)) = a.
-Proof. _mk_dest_rec. Qed.
+Proof. _mk_dest_inductive. Qed.
 
 Definition option_pred {A : Type'} (r : recspace A) :=
   forall option' : recspace A -> Prop,
@@ -2497,7 +2514,7 @@ Definition option_pred {A : Type'} (r : recspace A) :=
 
 Lemma axiom_14' : forall {A : Type'} (r : recspace A), (option_pred r) = ((@_dest_option A (@_mk_option A r)) = r).
 Proof.
-  intros A r. _dest_mk_rec. now exists None. now exists (Some x0).
+  intros A r. _dest_mk_inductive. now exists None. now exists (Some x0).
 Qed.
 
 Lemma axiom_14 : forall {A : Type'} (r : recspace A), ((fun a : recspace A => forall option' : (recspace A) -> Prop, (forall a' : recspace A, ((a' = (@CONSTR A (NUMERAL N0) (@ε A (fun v : A => True)) (fun n : N => @BOTTOM A))) \/ (exists a'' : A, a' = ((fun a''' : A => @CONSTR A (N.succ (NUMERAL N0)) a''' (fun n : N => @BOTTOM A)) a''))) -> option' a') -> option' a) r) = ((@_dest_option A (@_mk_option A r)) = r).
@@ -2527,7 +2544,7 @@ Fixpoint _dest_list {A : Type'} l : recspace A :=
 Definition _mk_list {A : Type'} := finv (@_dest_list A).
 
 Lemma axiom_15 {A : Type'} : forall (a : list A), (@_mk_list A (@_dest_list A a)) = a.
-Proof. _mk_dest_rec. Qed.
+Proof. _mk_dest_inductive. Qed.
 
 Definition list_pred {A : Type'} (r : recspace A) :=
   forall list'0 : recspace A -> Prop,
@@ -2538,7 +2555,7 @@ Definition list_pred {A : Type'} (r : recspace A) :=
 
 Lemma axiom_16' : forall {A : Type'} (r : recspace A), (list_pred r) = ((@_dest_list A (@_mk_list A r)) = r).
 Proof.
-  intros A r. _dest_mk_rec.
+  intros A r. _dest_mk_inductive.
   - now exists nil.
   - exists (cons x0 x2). now rewrite <- H0.
   - right. exists a. exists (_dest_list x0). split.
