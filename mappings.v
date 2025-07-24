@@ -697,6 +697,9 @@ Require Import Stdlib.Logic.ProofIrrelevance.
 (* Apply proof_irrelevance to all propositionnal fields,
    to prove injectivity of _dest_T. *)
 
+(* To do that we first need to rewrite equalities to remove the difference in
+   dependant typing of the fields. *)
+
 Ltac instance_uniqueness := let instance1 := fresh in
   let instance2 := fresh in
   let eq := fresh in
@@ -720,11 +723,22 @@ Ltac _mk_dest_record := finv_inv_l ; instance_uniqueness.
    which is simply done by rewriting the hypothesis, and destructing r'
    to get its fields which should contain the required proof.  *)
 
-Ltac _dest_mk_record := let r := fresh in
+Ltac _dest_mk_record :=
   intros ; apply finv_inv_r ;
-  [ intros ; full_destruct
-  | intros [r <-] ; clearall ; destruct r ;
-     simpl in * ; repeat (split ; auto) ].
+  [ try match goal with
+    | |- ?P _ -> _ => unfold P
+    | |- ?P _ _ -> _ => unfold P
+    | |- ?P _ _ _ -> _ => unfold P
+    | |- ?P _ _ _ _ -> _ => unfold P end ;
+    intros ; full_destruct
+  | try match goal with
+    | |- (exists _, ?f _ = _) -> _ => unfold f
+    | |- (exists _, ?f _ _ = _) -> _ => unfold f
+    | |- (exists _, ?f _ _ _ = _) -> _ => unfold f
+    | |- (exists _, ?f _ _ _ _  = _) -> _ => unfold f end ; 
+    let r := fresh in
+    intros [r <-] ; clearall ; destruct r ;
+    repeat (split ; auto) ; simpl ].
 
 (* The other goal is the opposite direction,
    and it is solvable by
