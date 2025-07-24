@@ -692,11 +692,6 @@ Ltac revert_keep H :=
     repeat match goal with
     | x : _ |- _ => assert_fails typecheck T x ; revert x end end.
 
-Lemma paireqE A B (x x' : A) (y y' : B) : ((x,y) = (x',y')) = ((x=x') /\ (y=y')).
-Proof.
- now apply prop_ext ; [ inversion 1 | intros [-> ->]].
-Qed.
-
 Require Import Stdlib.Logic.ProofIrrelevance.
 
 (* Apply proof_irrelevance to all propositionnal fields,
@@ -720,7 +715,7 @@ Ltac instance_uniqueness := let instance1 := fresh in
 
 (* Combine it with finv_inv_l. *)
 
-Ltac _mk_dest_inductiveord := finv_inv_l ; instance_uniqueness.
+Ltac _mk_dest_record := finv_inv_l ; instance_uniqueness.
 
 (* tries proving [H1 /\ ... /\ Hn -> P] with hypothesis [H1 -> ... -> Hn -> P]
    or the converse. *)
@@ -732,7 +727,7 @@ Ltac and_arrow := hnf ; intros ; try match goal with H : _ |- _ => now apply H e
    which is simply done by rewriting the hypothesis, and destructing r'
    to get its fields which should contain the required proof.  *)
 
-Ltac _dest_mk_inductiveord :=
+Ltac _dest_mk_record :=
   intros ; apply finv_inv_r ;
   [ try match goal with
     | |- ?P _ -> _ => unfold P
