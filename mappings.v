@@ -462,7 +462,7 @@ Ltac breakgoal :=
   match goal with
   | |- _ \/ _ => left + right ; breakgoal (* Try both *)
   | |- exists _,_ => eexists ; breakgoal (* The witness should be obvious *)
-  | |- _ => easy end. (* if easy cannot do the job, it fails to branch back. *)
+  | |- _ => now eauto end. (* if easy cannot do the job, it fails to branch back. *)
 
 (* simply decomposing each hypothesis that we might encounter,
    a lot faster than going brutally with firstorder *)
