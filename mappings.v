@@ -884,7 +884,13 @@ Ltac solve_total_align := try full_destruct ;
 
    For more complex types, it is possible to try and adapt this tactic
    to specify how the induction hypothesis should be used.
-   See term_align in coq-hol-light-Logic1 for an example with lists as recursive arguments *)
+   See term_align in coq-hol-light-Logic1 for an example with lists as recursive arguments,
+   using the following solving tactic *)
+
+
+Ltac solve_total_align_with_lists :=
+  try full_destruct ; blindrewrite ; auto ;
+  repeat (f_equal ; try now apply map_ext_Forall).
 
 Ltac use_induction r := induction r.
 Ltac total_align1 := total_align1_general use_induction solve_total_align.
