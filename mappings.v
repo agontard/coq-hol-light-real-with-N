@@ -1,5 +1,7 @@
-Require Import mathcomp.classical.classical_sets.
-Import ssreflect ssrnat ssrfun eqtype choice ssrbool boolp HB.structures.
+From mathcomp Require Import ssreflect ssrfun ssrbool eqtype ssrnat choice.
+From mathcomp Require Import boolp classical_sets functions.
+From Stdlib Require Import BinNat List ProofIrrelevance Lia PeanoNat Ascii Setoid.
+Require Import Corelib.Init.Wf HB.structures.
 Set Implicit Arguments.
 Unset Strict Implicit.
 Unset Printing Implicit Defensive.
@@ -137,7 +139,6 @@ Ltac AllProp := rewrite -?eq_opE ?bool_eqE ?asboolE.
           and relations) as ssrnat has basically none, especially for bin_of_nat.
           could allow to use for example nth or length on lists.
 
-Require Import Stdlib.NArith.BinNat.
 Coercion bin_of_nat : nat >-> N.
 
 (* nat_of_bin is already defined as a coercion in ssrnat. *)
@@ -546,8 +547,6 @@ Qed.
 (* For inductive types *)
 (*****************************************************************************)
 
-Require Import Stdlib.NArith.BinNat.
-
 Definition NUMERAL (x : N) := x.
 
 Definition BIT0 := N.double.
@@ -693,8 +692,6 @@ Ltac revert_keep H :=
   match type of H with ?T =>
     repeat match goal with
     | x : _ |- _ => assert_fails typecheck T x ; revert x end end.
-
-Require Import Stdlib.Logic.ProofIrrelevance.
 
 (* Apply proof_irrelevance to all propositionnal fields,
    to prove injectivity of _dest_T. *)
@@ -889,7 +886,7 @@ Ltac solve_total_align := try full_destruct ;
 
 Ltac solve_total_align_with_lists :=
   try full_destruct ; blindrewrite ; auto ;
-  repeat (f_equal ; try now apply List.map_ext_Forall).
+  repeat (f_equal ; try now apply map_ext_Forall).
 
 Ltac use_induction r := induction r.
 Ltac total_align1 := total_align1_general use_induction solve_total_align.
@@ -1116,8 +1113,6 @@ Proof. by ext 1. Qed.
 (*****************************************************************************)
 (* Alignment of subtypes. *)
 (*****************************************************************************)
-
-Require Import Stdlib.Logic.ProofIrrelevance.
 
 Section Subtype.
 
@@ -1365,7 +1360,6 @@ Definition ONE_ONE A B := @injective B A.
 Lemma ONE_ONE_def {A B : Type'} : (@ONE_ONE A B) = (fun _2064 : A -> B => forall x1 : A, forall x2 : A, ((_2064 x1) = (_2064 x2)) -> x1 = x2).
 Proof. exact erefl. Qed.
 
-Require Import mathcomp.classical.functions.
 Definition ONTO {A B : Type'} (f : A -> B) := set_surj setT setT f.
 
 Lemma ONTO_def {A B : Type'} : (@ONTO A B) = (fun _2069 : A -> B => forall y : B, exists x : A, y = (_2069 x)).
@@ -1444,7 +1438,6 @@ Proof. ind_align. Qed.
 (* Alignment of the type of natural numbers. *)
 (****************************************************************************)
 
-From Stdlib Require Import NArith.BinNat micromega.Lia.
 Open Scope N_scope.
 
 (* Not using is_Type' to keep its boolean equality *)
@@ -2008,8 +2001,6 @@ Qed.
 HOL Light: non-empty subsets has minimal, Rocq: has induction *)
 (****************************************************************************)
 
-Require Import Corelib.Init.Wf.
-
 Definition well_founded := Corelib.Init.Wf.well_founded.
 
 Lemma WF_def {A : Type'} : (@well_founded A) = (fun _6923 : A -> A -> Prop => forall P : A -> Prop, (exists x : A, P x) -> exists x : A, (P x) /\ (forall y : A, (_6923 y x) -> ~ (P y))).
@@ -2050,8 +2041,6 @@ Qed.
 (****************************************************************************)
 (* Alignment of  measures, that is functions A -> N which creates a wf order by inverse image *)
 (****************************************************************************)
-
-Require Import Stdlib.Arith.PeanoNat.
 
 Lemma inj_lt m n: (N.to_nat m > N.to_nat n)%coq_nat = (n < m).
 Proof.
@@ -2342,8 +2331,6 @@ Proof. constr_align (@axiom_13 A). Qed.
 (****************************************************************************)
 
 HB.instance Definition _ A := is_Type' (@nil A).
-
-Require Import Stdlib.Lists.List.
 
 Fixpoint _dest_list {A : Type'} l : recspace A :=
   match l with
@@ -2670,8 +2657,6 @@ Qed.
 (* Note the mismatch between Rocq's ascii which takes booleans as arguments
 and HOL-Light's char which takes propositions as arguments. *)
 
-Require Import Stdlib.Strings.Ascii.
-
 HB.instance Definition _ := is_Type' zero.
 
 Definition _dest_char : ascii -> recspace (Prop*(Prop*(Prop*(Prop*(Prop*(Prop*(Prop*(Prop)))))))) :=
@@ -2845,8 +2830,6 @@ Add Relation _ nadd_eq
     symmetry proved by nadd_eq_sym
     transitivity proved by nadd_eq_trans
 as nadd_eq_rel.
-
-Require Import Stdlib.Setoids.Setoid.
 
 Add Morphism nadd_add
     with signature nadd_eq ==> nadd_eq ==> nadd_eq
