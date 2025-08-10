@@ -10,6 +10,11 @@ Unset Printing Implicit Defensive.
 
 Notation "H **" := (reflect_eq H).
 
+(* example :
+Goal forall P Q, ~~ P /\ Q -> ~P /\ Q.
+by move=>* ; rewrite negP**.
+Abort. *) 
+
 (****************************************************************************)
 (* Rocq theory for encoding HOL-Light proofs. *)
 (****************************************************************************)
@@ -113,12 +118,12 @@ Coercion asbool : Sortclass >-> bool.
 
 Ltac booleqsimp := rewrite ?eqb_id ?eqbF_neg.
 
-Lemma bool_eq_decompP : forall a b : bool, is_true (a==b) = (is_true a = is_true b).
+Lemma bool_eqE : forall a b : bool, is_true (a==b) = (is_true a = is_true b).
 Proof.
   by move=> [] [] ; ext ; booleqsimp ; rewrite //= ; first (move <-) ; last (move ->).
 Qed.
 
-Ltac AllProp := rewrite -?eq_opE ?bool_eq_decompP ?asboolE.
+Ltac AllProp := rewrite -?eq_opE ?bool_eqE ?asboolE.
 
 (* Check and : bool -> bool -> bool. *)
 
@@ -461,6 +466,7 @@ Ltac align_ε_if :=
 Ltac breakgoal :=
   match goal with
   | |- _ \/ _ => left + right ; breakgoal (* Try both *)
+  | |- _ /\ _ => split ; breakgoal
   | |- exists _,_ => eexists ; breakgoal (* The witness should be obvious *)
   | |- _ => now eauto end. (* if easy cannot do the job, it fails to branch back. *)
 
@@ -656,7 +662,7 @@ Ltac _dest_mk_inductive :=
      right under their definition in T_terms.v, replacing them with the new definition ).
      constr_align automatically proves _123456_def (afterwards, C_def is just reflexivity) : *)
 
-Ltac extall := repeat (apply funext=>?).
+Ltac extall := repeat (let x := fresh "x" in apply funext=>x).
 Ltac constr_align H := (* Takes as argument the lemma [forall x, _mk_T (_dest_T x) = x].
                           Requires explicit type arguments. *)
   extall ; match goal with |- ?x = _ => exact (esym (H x)) end.
@@ -769,7 +775,7 @@ Tactic Notation "record_exists" uconstr(uwitness) :=
 
 (* Funnily enough, we must first redefine align_ε *)
 
-Tactic Notation "align_ε" :=
+(* Tactic Notation "align_ε" :=
   let rec aux :=
     lazymatch goal with
     | |- _ ?x = ε _ ?x => apply (f_equal (fun f => f x)) ; aux
@@ -794,172 +800,111 @@ Tactic Notation "align_ε" :=
     | |- ?a = ε ?P => apply align_ε (* Replaces the goal [a = ε P] with two goals [P a] and
                                        [forall x, P a => P x => x = a]. *)
     end
-  in aux.
+  in aux. *)
 
 (* Tries to prove a goal [f = ε P uv] where f is recursively defined. *)
-Ltac total_align1 :=
+Ltac total_align1_general inductiontac solvetac :=
   align_ε ; (* At this state, we have two goals : [P f] and [P f -> P f' -> f = f'].
                 We now assume that [P f] is of the form
                 [Q1 f C1 = ... /\ Q2 f C2 = ... /\ ... /\ Qn f Cn = ...]
                 where the Ci are the constructors of the type and
                 the Qi are universal quantifications over other arguments and subterms of the Ci. *)
   [ repeat split ; intros ; auto 
-  | let f' := fresh in
+  | let f' := fresh "f'" in
     let r := fresh in
     let H := fresh in
     let H' := fresh in
-    intros f' H H' ; ext 1 => r ; induction r ; extall ;
-    try full_destruct ; (* with the correct induction principle, we have one case per clause,
-                           we can replace [f] and [f']'s values with the corresponding
-                           clause in [P] (that we have split).
-                           By also rewriting all induction hypotheses,
-                           the goal should become a reflexive equality.
-
-                           For more complex types, it is possible to try and adapt this tactic
-                           to specify how the induction hypothesis should be used.
-                           See term_align in coq-hol-light-Logic1 for an example 
-                           with lists as recursive arguments *)
-    repeat match goal with
-    H : _ |- _ => rewrite H end ;
-    auto (* reflexivity would be more ideal but sometimes rewriting the induction hypothesis fails
-            because the recursive call is dependant on something else, for example something quantified. *)
+    intros f' H H' ; ext 1 => r ; inductiontac r ; extall ;
+    solvetac (* Depending on the need, can be a basic tactic ending with auto or
+                one that must succeed, or a more complex one for specific types *)
     ].
 
-(* The following only change which argument induction is applied on. *)
+(* The following only change which argument inductiontac is applied on. *)
 
-Ltac total_align2 :=
+Ltac total_align2_general inductiontac solvetac :=
   align_ε ; [ repeat split ; intros ; auto
-  | let f' := fresh in
+  | let f' := fresh "f'" in
     let r := fresh in
-    let a := fresh in
+    let a := fresh "x" in
     let H := fresh in
     let H' := fresh in
-    intros f' H H' ; ext 2=> a r ;
-    revert a ; induction r ; intro a ; extall ;
-    try full_destruct ; repeat match goal with
-    H : ?P |- _ => rewrite H end ; auto ].
+    intros f' H H' ; ext 2=> + r ; inductiontac r => a ; extall ; solvetac ].
 
-Ltac total_align3 :=
+Ltac total_align3_general inductiontac solvetac :=
   align_ε ; [ repeat split ; intros ; auto
-  | let f' := fresh in
+  | let f' := fresh "f'" in
     let r := fresh in
-    let a := fresh in
-    let b := fresh in
+    let a := fresh "x" in
+    let b := fresh "x" in
     let H := fresh in
     let H' := fresh in
-    intros f' H H' ; ext 3 => a b r ;
-    revert a b ; induction r ; intros a b ; extall ;
-    try full_destruct ; repeat match goal with
-    H : _ |- _ => rewrite H end ; auto ].
+    intros f' H H' ; ext 3 => + + r ; inductiontac r => a b ; extall ; solvetac ].
 
-Ltac total_align4 :=
+Ltac total_align4_general inductiontac solvetac :=
   align_ε ; [ repeat split ; intros ; auto
-  | let f' := fresh in
+  | let f' := fresh "f'" in
     let r := fresh in
-    let a := fresh in
-    let b := fresh in
-    let c := fresh in
+    let a := fresh "x" in
+    let b := fresh "x" in
+    let c := fresh "x" in
     let H := fresh in
     let H' := fresh in
-    intros f' H H' ; ext 4 => a b c r ;
-    revert a b c ; induction r ; intros a b c ; extall ;
-    try full_destruct ;
-    repeat match goal with
-    H : _ |- _ => rewrite H end ; auto ].
+    intros f' H H' ; ext 4 => + + + r ;
+    inductiontac r => a b c ; extall ; solvetac ].
 
-Ltac total_align5 :=
+Ltac total_align5_general inductiontac solvetac :=
   align_ε ; [ repeat split ; intros ; auto
-  | let f' := fresh in
+  | let f' := fresh "f'" in
     let r := fresh in
-    let a := fresh in
-    let b := fresh in
-    let c := fresh in
-    let d := fresh in
+    let a := fresh "x" in
+    let b := fresh "x" in
+    let c := fresh "x" in
+    let d := fresh "x" in
     let H := fresh in
     let H' := fresh in
-    intros f' H H' ; ext 5 => a b c d r ;
-    revert a b c d ; induction r ; intros a b c d ; extall ;
-    try full_destruct ; repeat match goal with
-    H : _ |- _ => rewrite H ; clear H end ; auto ].
+    intros f' H H' ; ext 5 => + + + + r ;
+    inductiontac r ; extall ; solvetac ].
 
-Ltac total_align :=
+Ltac total_align_general inductiontac solvetac :=
+  let force_solvetac := solve [solvetac] in
   first
-  [ total_align1
-  | total_align2
-  | total_align3
-  | total_align4
-  | total_align5 ].
+  [ total_align1_general inductiontac force_solvetac
+  | total_align2_general inductiontac force_solvetac
+  | total_align3_general inductiontac force_solvetac
+  | total_align4_general inductiontac force_solvetac
+  | total_align5_general inductiontac force_solvetac ].
 
-(****************************************************************************)
-(* Variant on N. *)
-(****************************************************************************)
+Ltac solve_total_align := try full_destruct ;
+  blindrewrite ; try reflexivity.
 
-Ltac N_rec_align1 :=
-  align_ε ; (* At this state, we have two goals : P f and P f -> P f' -> f = f'.
-                We now assume that P is of the form
-                g 0 = x /\ forall n, g (Succ n) = y for some x and y. *)
-  [ split ; auto (* since it is a conjunction, we can split *)
-  | let f' := fresh in
-    let n := fresh in
-    let HO := fresh in
-    let HS := fresh in
-    let HO' := fresh in
-    let HS' := fresh in
-    let IHn := fresh in
-    intros f' (HO , HS) (HO' , HS') ; (* Naming specifically each clause in H and H'. *)
-    ext 1 => n ; match goal with |- ?f n = f' n => 
-      revert n ; apply (N.peano_rec (fun n => (f n = f' n))) ; try intros n IHn ;
-      do 2 try apply funext=>? ; [
-        rewrite HO ; rewrite HO' (* f 0 and f' 0 are replaced with the same value. This ensures that we are inducting on the correct variable otherwise rewriting would fail. *)
-      | rewrite HS ; rewrite HS' ; try rewrite <- IHn (* Same as above. *)
-      ] ; auto end
-        ] .
-  (* If all works correctly we have two goals left, PO f and PS f.
-     PO f is often already solved, and in easy cases, so is PS f. *) 
+(* With the correct induction principle, we have one case per clause,
+   we can replace [f] and [f']'s values with the corresponding
+   clause in [P] (that we have split). By also rewriting all induction hypotheses,
+   the goal should become a reflexive equality.
 
-(* N_rec_align2 and N_rec_align3 are very similar. *)
+   For more complex types, it is possible to try and adapt this tactic
+   to specify how the induction hypothesis should be used.
+   See term_align in coq-hol-light-Logic1 for an example with lists as recursive arguments *)
 
-Ltac N_rec_align2 :=
-  align_ε ; [ split ; auto
-  | let f' := fresh in
-    let n := fresh in
-    let a := fresh in
-    let HO := fresh in
-    let HS := fresh in
-    let HO' := fresh in
-    let HS' := fresh in
-    let IHn := fresh in
-    intros f' (HO , HS) (HO' , HS') ; ext 2=> a n ;
-    match goal with |- ?f a n = f' a n =>
-      revert n a ; apply (N.peano_rec (fun n => forall a, f a n = f' a n)) ; [
-        intro a ; try apply funext=>? ; rewrite HO ; rewrite HO' 
-      | intros n IHn a ; try apply funext=>? ;
-        rewrite HS ; rewrite HS' ; try rewrite <- IHn ] ; auto end
-        ] .
+Ltac use_induction r := induction r.
+Ltac total_align1 := total_align1_general use_induction solve_total_align.
+Ltac total_align2 := total_align2_general use_induction solve_total_align.
+Ltac total_align3 := total_align3_general use_induction solve_total_align.
+Ltac total_align4 := total_align4_general use_induction solve_total_align.
+Ltac total_align5 := total_align5_general use_induction solve_total_align.
+Ltac total_align := total_align_general use_induction solve_total_align.
 
-Ltac N_rec_align3 :=
-  align_ε ; [ split ; auto
-  | let f' := fresh in
-    let n := fresh in
-    let a := fresh in
-    let b := fresh in
-    let HO := fresh in
-    let HS := fresh in
-    let HO' := fresh in
-    let HS' := fresh in
-    let IHn := fresh in
-    intros f' (HO , HS) (HO' , HS') ; ext => a b n ;
-    match goal with |- ?f a b n = f' a b n =>
-      revert n a b ; apply (N.peano_rec (fun n => forall a b, f a b n = f' a b n)) ; [
-        intros a b ; rewrite HO ; rewrite HO'
-      | intros n IHn a b ; rewrite HS ; rewrite HS' ; try rewrite <- IHn ] ; auto end
-        ].
+(* In the rare case where solve_total_align would not be sufficient in proving one of the goals,
+   one should use total_aligni where i is the variable to induct on. Otherwise, simply use total_align. *)
 
-Ltac N_rec_align :=
-  first
-  [ N_rec_align1
-  | N_rec_align2
-  | N_rec_align3 ].
+(* variant on N with N.peano_ind *)
+Ltac Peano_induction n := induction n using N.peano_ind.
+Ltac N_rec_align1 := total_align1_general Peano_induction solve_total_align.
+Ltac N_rec_align2 := total_align2_general Peano_induction solve_total_align.
+Ltac N_rec_align3 := total_align3_general Peano_induction solve_total_align.
+Ltac N_rec_align4 := total_align4_general Peano_induction solve_total_align.
+Ltac N_rec_align5 := total_align5_general Peano_induction solve_total_align.
+Ltac N_rec_align := total_align_general Peano_induction solve_total_align.
 
 (****************************************************************************)
 (* For partial recursive functions. *)
@@ -1623,32 +1568,28 @@ Qed.
 
 Lemma EXP_def : N.pow = (@ε (arr (prod N (prod N N)) (arr N (arr N N))) (fun EXP' : (prod N (prod N N)) -> N -> N -> N => forall _2224 : prod N (prod N N), (forall m : N, EXP' _2224 m (NUMERAL N0) = NUMERAL (BIT1 N0)) /\ (forall m : N, forall n : N, (EXP' _2224 m (N.succ n)) = (N.mul m (EXP' _2224 m n)))) (@pair N (prod N N) (BIT1 (BIT0 (BIT1 (BIT0 (BIT0 (BIT0 (BIT1 N0))))))) (@pair N N (BIT0 (BIT0 (BIT0 (BIT1 (BIT1 (BIT0 (BIT1 0))))))) (BIT0 (BIT0 (BIT0 (BIT0 (BIT1 (BIT0 (BIT1 N0)))))))))).
 Proof.
-  N_rec_align. exact N.pow_succ_r'.
+  N_rec_align. apply N.pow_succ_r'.
 Qed.
 
 Lemma le_def : N.le = (@ε (arr (prod N N) (arr N (arr N Prop))) (fun le' : (prod N N) -> N -> N -> Prop => forall _2241 : prod N N, (forall m : N, (le' _2241 m (NUMERAL N0)) = (m = (NUMERAL N0))) /\ (forall m : N, forall n : N, (le' _2241 m (N.succ n)) = ((m = (N.succ n)) \/ (le' _2241 m n)))) (@pair N N (NUMERAL (BIT0 (BIT0 (BIT1 (BIT1 (BIT1 (BIT1 0))))))) (NUMERAL (BIT1 (BIT0 (BIT1 (BIT1 (BIT1 (BIT1 0))))))))).
 Proof.
   N_rec_align.
-  - intro n.
-    apply propext.
-    exact (N.le_0_r n).
-  - intros n m.
-    apply propext.
+  - apply propext.
+    exact (N.le_0_r m).
+  - apply propext.
     rewrite or_comm.
-    exact (N.le_succ_r n m).
+    exact (N.le_succ_r m n).
 Qed.
 
 Lemma lt_def : N.lt = (@ε (arr N (arr N (arr N Prop))) (fun lt : N -> N -> N -> Prop => forall _2248 : N, (forall m : N, (lt _2248 m (NUMERAL N0)) = False) /\ (forall m : N, forall n : N, (lt _2248 m (N.succ n)) = ((m = n) \/ (lt _2248 m n)))) (NUMERAL (BIT0 (BIT0 (BIT1 (BIT1 (BIT1 (BIT1 0)))))))).
 Proof.
   N_rec_align.
-  - intro n.
-    rewrite is_False.
-    exact (N.nlt_0_r n).
-  - intros n m.
-    apply propext.
+  - rewrite is_False.
+    exact (N.nlt_0_r m).
+  - apply propext.
     rewrite N.lt_succ_r.
     rewrite or_comm.
-    exact (N.lt_eq_cases n m).
+    exact (N.lt_eq_cases m n).
 Qed.
 
 Lemma ge_def : N.ge = (fun _2249 : N => fun _2250 : N => N.le _2250 _2249).
@@ -1682,16 +1623,16 @@ Qed.
 Lemma minus_def : N.sub = (@ε (arr N (arr N (arr N N))) (fun pair' : N -> N -> N -> N => forall _2766 : N, (forall m : N, (pair' _2766 m (NUMERAL N0)) = m) /\ (forall m : N, forall n : N, (pair' _2766 m (N.succ n)) = (N.pred (pair' _2766 m n)))) (NUMERAL (BIT1 (BIT0 (BIT1 (BIT1 (BIT0 (BIT1 0)))))))).
 Proof.
   N_rec_align.
-  - exact N.sub_0_r.
-  - exact N.sub_succ_r.
+  - apply N.sub_0_r.
+  - apply N.sub_succ_r.
 Qed.
 
 Definition fact := N.peano_rect (fun _ => N) 1 (fun n r => N.succ n * r).
 
 Lemma FACT_def : fact = @ε ((prod N (prod N (prod N N))) -> N -> N) (fun FACT' : (prod N (prod N (prod N N))) -> N -> N => forall _2944 : prod N (prod N (prod N N)), ((FACT' _2944 (NUMERAL 0%N)) = (NUMERAL (BIT1 0%N))) /\ (forall n : N, (FACT' _2944 (N.succ n)) = (N.mul (N.succ n) (FACT' _2944 n)))) (@pair N (prod N (prod N N)) (NUMERAL (BIT0 (BIT1 (BIT1 (BIT0 (BIT0 (BIT0 (BIT1 0%N)))))))) (@pair N (prod N N) (NUMERAL (BIT1 (BIT0 (BIT0 (BIT0 (BIT0 (BIT0 (BIT1 0%N)))))))) (@pair N N (NUMERAL (BIT1 (BIT1 (BIT0 (BIT0 (BIT0 (BIT0 (BIT1 0%N)))))))) (NUMERAL (BIT0 (BIT0 (BIT1 (BIT0 (BIT1 (BIT0 (BIT1 0%N))))))))))).
 Proof.
-  numsimp. N_rec_align. 
-  intro n. unfold fact. now rewrite N.peano_rect_succ.
+  numsimp. N_rec_align.
+  unfold fact. now rewrite N.peano_rect_succ.
 Qed.
 
 Lemma Nadd_sub a b : a + b - a = b. Proof. lia. Qed.
@@ -1815,13 +1756,13 @@ Qed.
 Lemma EVEN_def : N.Even = @ε ((prod N (prod N (prod N N))) -> N -> Prop) (fun EVEN' : (prod N (prod N (prod N N))) -> N -> Prop => forall _2603 : prod N (prod N (prod N N)), ((EVEN' _2603 (NUMERAL 0%N)) = True) /\ (forall n : N, (EVEN' _2603 (N.succ n)) = (~ (EVEN' _2603 n)))) (@pair N (prod N (prod N N)) (NUMERAL (BIT1 (BIT0 (BIT1 (BIT0 (BIT0 (BIT0 (BIT1 0%N)))))))) (@pair N (prod N N) (NUMERAL (BIT0 (BIT1 (BIT1 (BIT0 (BIT1 (BIT0 (BIT1 0%N)))))))) (@pair N N (NUMERAL (BIT1 (BIT0 (BIT1 (BIT0 (BIT0 (BIT0 (BIT1 0%N)))))))) (NUMERAL (BIT0 (BIT1 (BIT1 (BIT1 (BIT0 (BIT0 (BIT1 0%N))))))))))).
 Proof.
   numsimp. N_rec_align.
-  exact (NEven0). exact (NEvenS).
+  exact (NEven0). apply (NEvenS).
 Qed.
 
 Lemma ODD_def: N.Odd = @ε ((prod N (prod N N)) -> N -> Prop) (fun ODD' : (prod N (prod N N)) -> N -> Prop => forall _2607 : prod N (prod N N), ((ODD' _2607 (NUMERAL 0%N)) = False) /\ (forall n : N, (ODD' _2607 (N.succ n)) = (~ (ODD' _2607 n)))) (@pair N (prod N N) (NUMERAL (BIT1 (BIT1 (BIT1 (BIT1 (BIT0 (BIT0 (BIT1 0%N)))))))) (@pair N N (NUMERAL (BIT0 (BIT0 (BIT1 (BIT0 (BIT0 (BIT0 (BIT1 0%N)))))))) (NUMERAL (BIT0 (BIT0 (BIT1 (BIT0 (BIT0 (BIT0 (BIT1 0%N)))))))))).
 Proof.
   numsimp. N_rec_align.
-  exact (NOdd0). exact (NOddS).
+  exact (NOdd0). apply (NOddS).
 Qed.
 
 (****************************************************************************)
@@ -2225,7 +2166,7 @@ Notation "[ x ; y ; .. ; z ]_rec" := (FCONS x (FCONS y .. (FCONS z Fnil) ..))
 
 Lemma FCONS_def {A : Type'} : @FCONS A = @ε ((prod N (prod N (prod N (prod N N)))) -> A -> (N -> A) -> N -> A) (fun FCONS' : (prod N (prod N (prod N (prod N N)))) -> A -> (N -> A) -> N -> A => forall _17460 : prod N (prod N (prod N (prod N N))), (forall a : A, forall f : N -> A, (FCONS' _17460 a f (NUMERAL N0)) = a) /\ (forall a : A, forall f : N -> A, forall n : N, (FCONS' _17460 a f (N.succ n)) = (f n))) (@pair N (prod N (prod N (prod N N))) (NUMERAL (BIT0 (BIT1 (BIT1 (BIT0 (BIT0 (BIT0 (BIT1 0)))))))) (@pair N (prod N (prod N N)) (NUMERAL (BIT1 (BIT1 (BIT0 (BIT0 (BIT0 (BIT0 (BIT1 0)))))))) (@pair N (prod N N) (NUMERAL (BIT1 (BIT1 (BIT1 (BIT1 (BIT0 (BIT0 (BIT1 0)))))))) (@pair N N (NUMERAL (BIT0 (BIT1 (BIT1 (BIT1 (BIT0 (BIT0 (BIT1 0)))))))) (NUMERAL (BIT1 (BIT1 (BIT0 (BIT0 (BIT1 (BIT0 (BIT1 0)))))))))))).
 Proof.
-  by N_rec_align ; move=>* ; rewrite /FCONS N.recursion_succ.
+  by N_rec_align ; rewrite /FCONS N.recursion_succ.
 Qed.
 
 Fixpoint _dest_rec {A : Type'} (r : recspace A) : N -> A -> Prop :=
@@ -2472,8 +2413,7 @@ match l with
 (* in case it might be useful ? *)
 Lemma length_of_nat_N {A : Type} (l : list A) : N.of_nat (length l) = lengthN l.
 Proof.
-  induction l. auto. unfold length. rewrite Nnat.Nat2N.inj_succ. simpl.
-  now rewrite <- IHl.
+  by induction l ; rewrite // /length Nnat.Nat2N.inj_succ /= -IHl.
 Qed.
 
 Lemma LENGTH_def {A : Type'} : lengthN = (@ε ((prod N (prod N (prod N (prod N (prod N N))))) -> (list A) -> N) (fun LENGTH' : (prod N (prod N (prod N (prod N (prod N N))))) -> (list A) -> N => forall _18106 : prod N (prod N (prod N (prod N (prod N N)))), ((LENGTH' _18106 (@nil A)) = N0) /\ (forall h : A, forall t : list A, (LENGTH' _18106 (@cons A h t)) = (N.succ (LENGTH' _18106 t)))) (@pair N (prod N (prod N (prod N (prod N N)))) ((BIT0 (BIT0 (BIT1 (BIT1 (BIT0 (BIT0 (BIT1 N0)))))))) (@pair N (prod N (prod N (prod N N))) ((BIT1 (BIT0 (BIT1 (BIT0 (BIT0 (BIT0 (BIT1 N0)))))))) (@pair N (prod N (prod N N)) ((BIT0 (BIT1 (BIT1 (BIT1 (BIT0 (BIT0 (BIT1 N0)))))))) (@pair N (prod N N) ((BIT1 (BIT1 (BIT1 (BIT0 (BIT0 (BIT0 (BIT1 N0)))))))) (@pair N N ((BIT0 (BIT0 (BIT1 (BIT0 (BIT1 (BIT0 (BIT1 N0)))))))) ((BIT0 (BIT0 (BIT0 (BIT1 (BIT0 (BIT0 (BIT1 N0)))))))))))))).
@@ -2483,7 +2423,7 @@ Qed.
 
 Lemma MAP_def {A B : Type'} : (@map A B) = (@ε ((prod N (prod N N)) -> (A -> B) -> (list A) -> list B) (fun MAP' : (prod N (prod N N)) -> (A -> B) -> (list A) -> list B => forall _17950 : prod N (prod N N), (forall f : A -> B, (MAP' _17950 f (@nil A)) = (@nil B)) /\ (forall f : A -> B, forall h : A, forall t : list A, (MAP' _17950 f (@cons A h t)) = (@cons B (f h) (MAP' _17950 f t)))) (@pair N (prod N N) (NUMERAL (BIT1 (BIT0 (BIT1 (BIT1 (BIT0 (BIT0 (BIT1 0)))))))) (@pair N N (NUMERAL (BIT1 (BIT0 (BIT0 (BIT0 (BIT0 (BIT0 (BIT1 0)))))))) (NUMERAL (BIT0 (BIT0 (BIT0 (BIT0 (BIT1 (BIT0 (BIT1 0))))))))))).
 Proof.
- total_align.
+  total_align.
 Qed.
 
 Lemma BUTLAST_def {_25251 : Type'} : (@removelast _25251) = (@ε ((prod N (prod N (prod N (prod N (prod N (prod N N)))))) -> (list _25251) -> list _25251) (fun BUTLAST' : (prod N (prod N (prod N (prod N (prod N (prod N N)))))) -> (list _25251) -> list _25251 => forall _17958 : prod N (prod N (prod N (prod N (prod N (prod N N))))), ((BUTLAST' _17958 (@nil _25251)) = (@nil _25251)) /\ (forall h : _25251, forall t : list _25251, (BUTLAST' _17958 (@cons _25251 h t)) = (@COND (list _25251) (t = (@nil _25251)) (@nil _25251) (@cons _25251 h (BUTLAST' _17958 t))))) (@pair N (prod N (prod N (prod N (prod N (prod N N))))) (NUMERAL (BIT0 (BIT1 (BIT0 (BIT0 (BIT0 (BIT0 (BIT1 0)))))))) (@pair N (prod N (prod N (prod N (prod N N)))) (NUMERAL (BIT1 (BIT0 (BIT1 (BIT0 (BIT1 (BIT0 (BIT1 0)))))))) (@pair N (prod N (prod N (prod N N))) (NUMERAL (BIT0 (BIT0 (BIT1 (BIT0 (BIT1 (BIT0 (BIT1 0)))))))) (@pair N (prod N (prod N N)) (NUMERAL (BIT0 (BIT0 (BIT1 (BIT1 (BIT0 (BIT0 (BIT1 0)))))))) (@pair N (prod N N) (NUMERAL (BIT1 (BIT0 (BIT0 (BIT0 (BIT0 (BIT0 (BIT1 0)))))))) (@pair N N (NUMERAL (BIT1 (BIT1 (BIT0 (BIT0 (BIT1 (BIT0 (BIT1 0)))))))) (NUMERAL (BIT0 (BIT0 (BIT1 (BIT0 (BIT1 (BIT0 (BIT1 0))))))))))))))).
@@ -2560,7 +2500,7 @@ Qed.
 
 Lemma REPLICATE_def {A : Type'} : repeatN = (@ε ((prod N (prod N (prod N (prod N (prod N (prod N (prod N (prod N N)))))))) -> N -> A -> list A) (fun REPLICATE' : (prod N (prod N (prod N (prod N (prod N (prod N (prod N (prod N N)))))))) -> N -> A -> list A => forall _18125 : prod N (prod N (prod N (prod N (prod N (prod N (prod N (prod N N))))))), (forall x : A, (REPLICATE' _18125 N0 x) = (@nil A)) /\ (forall n : N, forall x : A, (REPLICATE' _18125 (N.succ n) x) = (@cons A x (REPLICATE' _18125 n x)))) (@pair N (prod N (prod N (prod N (prod N (prod N (prod N (prod N N))))))) ((BIT0 (BIT1 (BIT0 (BIT0 (BIT1 (BIT0 (BIT1 N0)))))))) (@pair N (prod N (prod N (prod N (prod N (prod N (prod N N)))))) ((BIT1 (BIT0 (BIT1 (BIT0 (BIT0 (BIT0 (BIT1 N0)))))))) (@pair N (prod N (prod N (prod N (prod N (prod N N))))) ((BIT0 (BIT0 (BIT0 (BIT0 (BIT1 (BIT0 (BIT1 N0)))))))) (@pair N (prod N (prod N (prod N (prod N N)))) ((BIT0 (BIT0 (BIT1 (BIT1 (BIT0 (BIT0 (BIT1 N0)))))))) (@pair N (prod N (prod N (prod N N))) ((BIT1 (BIT0 (BIT0 (BIT1 (BIT0 (BIT0 (BIT1 N0)))))))) (@pair N (prod N (prod N N)) ((BIT1 (BIT1 (BIT0 (BIT0 (BIT0 (BIT0 (BIT1 N0)))))))) (@pair N (prod N N) ((BIT1 (BIT0 (BIT0 (BIT0 (BIT0 (BIT0 (BIT1 N0)))))))) (@pair N N ((BIT0 (BIT0 (BIT1 (BIT0 (BIT1 (BIT0 (BIT1 N0)))))))) ((BIT1 (BIT0 (BIT1 (BIT0 (BIT0 (BIT0 (BIT1 N0))))))))))))))))).
 Proof.
-  N_rec_align. exact repeatN_succ.
+  N_rec_align. apply repeatN_succ.
 Qed.
 
 Definition fold_right_with_perm_args {A B : Type'} 
@@ -2651,7 +2591,7 @@ Qed.
 
 Lemma EL_def {A : Type'} : Nth = (@ε ((prod N N) -> N -> (list A) -> A) (fun EL' : (prod N N) -> N -> (list A) -> A => forall _18178 : prod N N, (forall l : list A, (EL' _18178 N0 l) = (@hd A l)) /\ (forall n : N, forall l : list A, (EL' _18178 (N.succ n) l) = (EL' _18178 n (@tl A l)))) (@pair N N ((BIT1 (BIT0 (BIT1 (BIT0 (BIT0 (BIT0 (BIT1 N0)))))))) ((BIT0 (BIT0 (BIT1 (BIT1 (BIT0 (BIT0 (BIT1 N0)))))))))).
 Proof.
-  N_rec_align. intros n l. unfold Nth. now rewrite Nnat.N2Nat.inj_succ.
+  N_rec_align. unfold Nth. now rewrite Nnat.N2Nat.inj_succ.
 Qed.
 
 Definition ASSOC {A B : Type'} := (@ε ((prod N (prod N (prod N (prod N N)))) -> A -> (list (prod A B)) -> B) (fun ASSOC' : (prod N (prod N (prod N (prod N N)))) -> A -> (list (prod A B)) -> B => forall _18192 : prod N (prod N (prod N (prod N N))), forall h : prod A B, forall a : A, forall t : list (prod A B), (ASSOC' _18192 a (@cons (prod A B) h t)) = (@COND B ((@fst A B h) = a) (@snd A B h) (ASSOC' _18192 a t))) (@pair N (prod N (prod N (prod N N))) ((BIT1 (BIT0 (BIT0 (BIT0 (BIT0 (BIT0 (BIT1 N0)))))))) (@pair N (prod N (prod N N)) ((BIT1 (BIT1 (BIT0 (BIT0 (BIT1 (BIT0 (BIT1 N0)))))))) (@pair N (prod N N) ((BIT1 (BIT1 (BIT0 (BIT0 (BIT1 (BIT0 (BIT1 N0)))))))) (@pair N N ((BIT1 (BIT1 (BIT1 (BIT1 (BIT0 (BIT0 (BIT1 N0)))))))) ((BIT1 (BIT1 (BIT0 (BIT0 (BIT0 (BIT0 (BIT1 N0))))))))))))).
@@ -2703,7 +2643,7 @@ fun s n => list_of_seq s (N.to_nat n).
 
 Lemma list_of_seq_def {A : Type'} : list_of_Nseq = (@ε ((prod N (prod N (prod N (prod N (prod N (prod N (prod N (prod N (prod N (prod N N)))))))))) -> (N -> A) -> N -> list A) (fun list_of_seq' : (prod N (prod N (prod N (prod N (prod N (prod N (prod N (prod N (prod N (prod N N)))))))))) -> (N -> A) -> N -> list A => forall _18227 : prod N (prod N (prod N (prod N (prod N (prod N (prod N (prod N (prod N (prod N N))))))))), (forall s : N -> A, (list_of_seq' _18227 s N0) = (@nil A)) /\ (forall s : N -> A, forall n : N, (list_of_seq' _18227 s (N.succ n)) = (@app A (list_of_seq' _18227 s n) (@cons A (s n) (@nil A))))) (@pair N (prod N (prod N (prod N (prod N (prod N (prod N (prod N (prod N (prod N N))))))))) ((BIT0 (BIT0 (BIT1 (BIT1 (BIT0 (BIT1 (BIT1 N0)))))))) (@pair N (prod N (prod N (prod N (prod N (prod N (prod N (prod N (prod N N)))))))) ((BIT1 (BIT0 (BIT0 (BIT1 (BIT0 (BIT1 (BIT1 N0)))))))) (@pair N (prod N (prod N (prod N (prod N (prod N (prod N (prod N N))))))) ((BIT1 (BIT1 (BIT0 (BIT0 (BIT1 (BIT1 (BIT1 N0)))))))) (@pair N (prod N (prod N (prod N (prod N (prod N (prod N N)))))) ((BIT0 (BIT0 (BIT1 (BIT0 (BIT1 (BIT1 (BIT1 N0)))))))) (@pair N (prod N (prod N (prod N (prod N (prod N N))))) ((BIT1 (BIT1 (BIT1 (BIT1 (BIT1 (BIT0 (BIT1 N0)))))))) (@pair N (prod N (prod N (prod N (prod N N)))) ((BIT1 (BIT1 (BIT1 (BIT1 (BIT0 (BIT1 (BIT1 N0)))))))) (@pair N (prod N (prod N (prod N N))) ((BIT0 (BIT1 (BIT1 (BIT0 (BIT0 (BIT1 (BIT1 N0)))))))) (@pair N (prod N (prod N N)) ((BIT1 (BIT1 (BIT1 (BIT1 (BIT1 (BIT0 (BIT1 N0)))))))) (@pair N (prod N N) ((BIT1 (BIT1 (BIT0 (BIT0 (BIT1 (BIT1 (BIT1 N0)))))))) (@pair N N ((BIT1 (BIT0 (BIT1 (BIT0 (BIT0 (BIT1 (BIT1 N0)))))))) ((BIT1 (BIT0 (BIT0 (BIT0 (BIT1 (BIT1 (BIT1 N0))))))))))))))))))).
 Proof.
-  N_rec_align. intros s n. unfold list_of_Nseq.
+  N_rec_align. unfold list_of_Nseq.
   rewrite Nnat.N2Nat.inj_succ. now rewrite Nnat.N2Nat.id. 
 Qed.
 
