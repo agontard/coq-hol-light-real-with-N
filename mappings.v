@@ -493,12 +493,23 @@ Ltac clearall := repeat match goal with useless : _ |- _ => clear useless end.
    Let P_h x := Forall P', H' -> P' x' denote the HOL_Light definition of P
    and P_r the Rocq Inductive definition.
    *)
-Ltac ind_align :=
-  let x := fresh "x" in
-  let y := fresh "y" in
-  let z := fresh "z" in
-  let H := fresh in
-  try ext=> x y z H ; try ext => x y H ; try ext => x H ; try ext => H ;
+
+Ltac intros_namelast name :=
+  let tac_with_currentname x := intro x ; tryif intros_namelast name
+                                then idtac else rename x into name
+  in
+  let check_is_not_complicatename y :=
+    assert_succeeds (intro y ; assert (complicatename : True))
+  in
+  match goal with
+  | |- forall complicatename, _ => check_is_not_complicatename complicatename ;
+                                   tac_with_currentname complicatename
+  | |- _ -> _ => let H := fresh in tac_with_currentname H
+  | |- _ => let x := fresh "x" in tac_with_currentname x end.
+
+Ltac extall := repeat (let x := fresh "x" in apply funext=>x).
+
+Ltac ind_align := let H := fresh in extall ; ext => H ;
   (* Prove equality by double implication *)
   [ let P' := fresh "P'" in
     let H' := fresh "H'" in (* Proving [P_r x -> P_h x] *)
@@ -510,7 +521,7 @@ Ltac ind_align :=
   | (* Proving [P_h x -> P_r x] *)
     apply H ; (* Replaces goal [P_r x] with [H'] *)
     clearall ; (* H' talks about fresh variables *)
-    try intro x ; try intro y ; try intro z ; intros ;
+    intros_namelast H ;
     full_destruct ; (* Destructing H results in one goal per case, and separates the hypotheses *)
     blindrewrite ;  (* not much to do, each clause should be proved with a rule,
                        we just try to rewrite [a = f x1 ... xn] if it exists *)
@@ -661,7 +672,6 @@ Ltac _dest_mk_inductive :=
      right under their definition in T_terms.v, replacing them with the new definition ).
      constr_align automatically proves _123456_def (afterwards, C_def is just reflexivity) : *)
 
-Ltac extall := repeat (let x := fresh "x" in apply funext=>x).
 Ltac constr_align H := (* Takes as argument the lemma [forall x, _mk_T (_dest_T x) = x].
                           Requires explicit type arguments. *)
   extall ; match goal with |- ?x = _ => exact (esym (H x)) end.
