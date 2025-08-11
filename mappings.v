@@ -510,7 +510,7 @@ Ltac ind_align :=
   | (* Proving [P_h x -> P_r x] *)
     apply H ; (* Replaces goal [P_r x] with [H'] *)
     clearall ; (* H' talks about fresh variables *)
-    try intros x y z H ; try intros x y H ; try intros x H ;
+    try intro x ; try intro y ; try intro z ; intros ;
     full_destruct ; (* Destructing H results in one goal per case, and separates the hypotheses *)
     blindrewrite ;  (* not much to do, each clause should be proved with a rule,
                        we just try to rewrite [a = f x1 ... xn] if it exists *)
