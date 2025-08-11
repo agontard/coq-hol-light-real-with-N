@@ -544,7 +544,7 @@ Qed.
 
 Ltac finv_inv_l := intros ; apply finv_inv_l ; clearall.
 
-Lemma finv_inv_r [A B : Type'] (f : A -> B) : forall (P : B -> Prop) (y : B), 
+Lemma finv_inv_r [A B : Type'] (f : A -> B) : forall (P : B -> Prop) (y : B),
   (P y -> exists x, f x = y) -> ((exists x, f x = y) -> P y) -> P y = (f (finv f y) = y).
 Proof.
   intros P y i1 i2. transitivity (exists x, f x = y).
@@ -780,35 +780,6 @@ Tactic Notation "record_exists" uconstr(uwitness) :=
    totally defines the function by peano recursion on the kth argument. *)
 (* These tactics only work for functions with 3 or less arguments. *)
 
-(* Funnily enough, we must first redefine align_ε *)
-
-(* Tactic Notation "align_ε" :=
-  let rec aux :=
-    lazymatch goal with
-    | |- _ ?x = ε _ ?x => apply (f_equal (fun f => f x)) ; aux
-    | |- ?a = ε _ ?r =>
-        (* Replace the goal by (fun _ => a = ε ?P) *)
-        apply (f_equal (fun g => g r) (x := fun _ => a)) ;
-        aux ;
-        [ let uv := fresh in
-          intro uv ; clear uv 
-
-        | let a' := fresh in
-          let uv := fresh in
-          let H' := fresh in
-          let H := fresh in
-          intros a' H H' ; ext 1=> uv ;
-          specialize (H uv) ; (* As [P] starts with [forall uv] *)
-          specialize (H' uv) ;
-          simpl ((fun _ => a) uv) in * ; (* Simplifies to [a] so that [uv] only appears in [a' uv] *)
-          gobble a' uv ;
-          revert a' H H' (* Revert [a'], [P a] and [P a'] to reuse them in other tactics *)
-        ]
-    | |- ?a = ε ?P => apply align_ε (* Replaces the goal [a = ε P] with two goals [P a] and
-                                       [forall x, P a => P x => x = a]. *)
-    end
-  in aux. *)
-
 (* Tries to prove a goal [f = ε P uv] where f is recursively defined. *)
 Ltac total_align1_general inductiontac solvetac :=
   align_ε ; (* At this state, we have two goals : [P f] and [P f -> P f' -> f = f'].
@@ -975,7 +946,7 @@ Set Implicit Arguments.
 
 (* The following ressembles total_align but also tries to automatically get rid of every cases that
    are in Q. It is designed for recursive functions only. *)
-Ltac partial_align1 Q :=
+Ltac partial_align1_general Q inductiontac solvetac :=
   let f' := fresh "f'" in 
   let uv := fresh "uv" in
   let H := fresh in
@@ -989,14 +960,16 @@ Ltac partial_align1 Q :=
                                    total_align, if Q is inductive and the equality
                                    is trivial, inversion should do the job. *)
     | intros f' uv x H H' Htriv ; extall ;
-      specialize (H uv) ; specialize (H' uv) ;
-      induction x ; try (now apply Htriv ; try constructor ; auto) ; (* automatically takes care of cases
+      specialize (H uv) ;
+      specialize (H' uv) ;
+      simpl (_ uv) in * ;
+      gobble f' uv ;
+      inductiontac x ; (try now rewrite Htriv ; constructor) ; (* automatically takes care of cases
                                                                         in Q. *)
       clear Htriv ; (* We do not want to be able to rewrite Htriv outside of cases in Q. *)
-      try full_destruct ;
-      repeat match goal with H : _ |- _ => rewrite H end ; auto ] end.
+      solvetac ] end.
 
-Ltac partial_align2 Q :=
+Ltac partial_align2_general Q inductiontac solvetac :=
   let f' := fresh "f'" in 
   let uv := fresh "uv" in
   let H := fresh in
@@ -1007,12 +980,14 @@ Ltac partial_align2 Q :=
     clear y x ; [repeat split ; auto
     | intros y x ; now inversion 1
     | intros f' uv y x H H' Htriv ; extall ;
-      specialize (H uv) ; specialize (H' uv) ;
-      induction x ; try (now apply Htriv ; try constructor ; auto) ;
-      clear Htriv ; try full_destruct ;
-      repeat match goal with H : _ |- _ => rewrite H end ; auto ] end.
+      specialize (H uv) ;
+      specialize (H' uv) ;
+      simpl (_ uv) in * ;
+      gobble f' uv ;
+      inductiontac x ; (try now rewrite Htriv ; constructor) ;
+      clear Htriv ; solvetac ] end.
 
-Ltac partial_align3 Q :=
+Ltac partial_align3_general Q inductiontac solvetac :=
   let f' := fresh "f'" in 
   let uv := fresh "uv" in
   let H := fresh in
@@ -1023,18 +998,25 @@ Ltac partial_align3 Q :=
     clear y z x ; [repeat split ; auto
     | intros y z x ; now inversion 1
     | intros f' uv y z x H H' Htriv ; extall ;
-      specialize (H uv) ; specialize (H' uv) ;
-      induction x ; try (now apply Htriv ; try constructor ; auto) ;
-      clear Htriv ; try full_destruct ;
-      repeat match goal with H : _ |- _ => rewrite H end ; auto ] end.
+      specialize (H uv) ;
+      specialize (H' uv) ;
+      simpl (_ uv) in * ;
+      gobble f' uv ;
+      induction x ; (try now rewrite Htriv ; constructor) ;
+      clear Htriv ; solvetac] end.
 
-Ltac partial_align Q :=
+Ltac partial_align_general Q inductiontac solvetac :=
   let x := fresh "x" in
   let y := fresh "y" in
   let z := fresh "z" in
-  ext 1 => x ; partial_align1 Q +
-  (ext 1 => y ; partial_align2 Q +
-  (ext 1 => z ; partial_align3 Q)).
+  ext 1 => x ; partial_align1_general Q inductiontac solvetac +
+  (ext 1 => y ; partial_align2_general Q inductiontac solvetac +
+  (ext 1 => z ; partial_align3_general Q inductiontac solvetac)).
+
+Ltac partial_align1 Q := partial_align1_general Q use_induction solve_total_align.
+Ltac partial_align2 Q := partial_align2_general Q use_induction solve_total_align.
+Ltac partial_align3 Q := partial_align3_general Q use_induction solve_total_align.
+Ltac partial_align Q := partial_align_general Q use_induction solve_total_align.
 
 (****************************************************************************)
 (* Miscellaneous. *)
