@@ -526,7 +526,7 @@ Ltac ind_align :=
       intros_namelast H ;
       full_destruct ; (* Destructing H results in one goal per case, and separates the hypotheses *)
       blindrewrite ;  (* not much to do, each clause should be proved with a rule,
-                       we just try to rewrite [a = f x1 ... xn] if it exists *)
+                         we just try to rewrite [a = f x1 ... xn] if it exists *)
     tryif eauto using P then idtac else auto ]
   in lazymatch goal with 
   | |- ?P _ _ _ _ _ = _ => body P
@@ -535,6 +535,26 @@ Ltac ind_align :=
   | |- ?P _ _ = _ => body P
   | |- ?P _ = _ => body P
   | |- ?P = _ => body P end.
+
+(* Weaker version without eauto because it can be slow. *)
+Ltac fastind_align :=
+  let H := fresh in extall ; ext => H ;
+  (* Prove equality by double implication *)
+  [ let P' := fresh "P'" in
+    let H' := fresh "H'" in (* Proving [P_r x -> P_h x] *)
+    intros P' H' ; induction H ; apply H' ;
+    (* Induction on hypothesis [P_r x] replaces [x] according to Case_i for each i.
+       to prove [P' x] we apply [H']. *)
+    try breakgoal (* Trying to automatically find and solve Case_i'.
+                     The Hyps_i are in the context. *)
+  | (* Proving [P_h x -> P_r x] *)
+    apply H ; (* Replaces goal [P_r x] with [H'] *)
+    clearall ; (* H' talks about fresh variables *)
+    intros_namelast H ;
+    full_destruct ; (* Destructing H results in one goal per case, and separates the hypotheses *)
+    blindrewrite ;  (* not much to do, each clause should be proved with a rule,
+                       we just try to rewrite [a = f x1 ... xn] if it exists *)
+  try now try constructor ; auto ].
 
 (*****************************************************************************)
 (* For function inverses *)
