@@ -469,11 +469,11 @@ Tactic Notation (at level 0) "breakgoal" "by" tactic(solvetac) :=
   | |- _ \/ _ => left + right ; body (* Try both *)
   | |- _ /\ _ => split ; body
   | |- exists _,_ => eexists ; body (* The witness should be obvious *)
-  | |- _ => by solvetac end (* if solvetac cannot do the job,
-                                     it fails to branch back. *)
+  | |- _ => first [by eauto | by solvetac] end (* if solvetac cannot do the job,
+                                                  it fails to branch back. *)
   in body.
 
-Ltac breakgoal := breakgoal by eauto.
+Ltac breakgoal := breakgoal by idtac.
 
 (* simply decomposing each hypothesis that we might encounter,
    a lot faster than going brutally with firstorder *)
