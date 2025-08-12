@@ -464,12 +464,16 @@ Ltac align_ε_if :=
 (* For inductive propositions. *)
 (****************************************************************************)
 
-Ltac breakgoal :=
-  match goal with
-  | |- _ \/ _ => left + right ; breakgoal (* Try both *)
-  | |- _ /\ _ => split ; breakgoal
-  | |- exists _,_ => eexists ; breakgoal (* The witness should be obvious *)
-  | |- _ => now eauto end. (* if easy cannot do the job, it fails to branch back. *)
+Tactic Notation (at level 0) "breakgoal" "by" tactic(solvetac) :=
+  let rec body := match goal with
+  | |- _ \/ _ => left + right ; body (* Try both *)
+  | |- _ /\ _ => split ; body
+  | |- exists _,_ => eexists ; body (* The witness should be obvious *)
+  | |- _ => by solvetac end (* if solvetac cannot do the job,
+                                     it fails to branch back. *)
+  in body.
+
+Ltac breakgoal := breakgoal by eauto.
 
 (* simply decomposing each hypothesis that we might encounter,
    a lot faster than going brutally with firstorder *)
