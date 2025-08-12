@@ -527,7 +527,7 @@ Ltac ind_align :=
       full_destruct ; (* Destructing H results in one goal per case, and separates the hypotheses *)
       blindrewrite ;  (* not much to do, each clause should be proved with a rule,
                        we just try to rewrite [a = f x1 ... xn] if it exists *)
-    eauto using P ]
+    tryif eauto using P then idtac else auto ]
   in lazymatch goal with 
   | |- ?P _ _ _ _ _ = _ => body P
   | |- ?P _ _ _ _ = _ => body P
