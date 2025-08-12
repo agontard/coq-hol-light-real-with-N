@@ -509,23 +509,32 @@ Ltac intros_namelast name :=
 
 Ltac extall := repeat (let x := fresh "x" in apply funext=>x).
 
-Ltac ind_align := let H := fresh in extall ; ext => H ;
-  (* Prove equality by double implication *)
-  [ let P' := fresh "P'" in
-    let H' := fresh "H'" in (* Proving [P_r x -> P_h x] *)
-    intros P' H' ; induction H ; apply H' ;
-    (* Induction on hypothesis [P_r x] replaces [x] according to Case_i for each i.
-       to prove [P' x] we apply [H']. *)
-    try breakgoal (* Trying to automatically find and solve Case_i'.
-                     The Hyps_i are in the context. *)
-  | (* Proving [P_h x -> P_r x] *)
-    apply H ; (* Replaces goal [P_r x] with [H'] *)
-    clearall ; (* H' talks about fresh variables *)
-    intros_namelast H ;
-    full_destruct ; (* Destructing H results in one goal per case, and separates the hypotheses *)
-    blindrewrite ;  (* not much to do, each clause should be proved with a rule,
+Ltac ind_align :=
+  let body P :=
+    let H := fresh in extall ; ext => H ;
+    (* Prove equality by double implication *)
+    [ let P' := fresh "P'" in
+      let H' := fresh "H'" in (* Proving [P_r x -> P_h x] *)
+      intros P' H' ; induction H ; apply H' ;
+      (* Induction on hypothesis [P_r x] replaces [x] according to Case_i for each i.
+         to prove [P' x] we apply [H']. *)
+      try breakgoal (* Trying to automatically find and solve Case_i'.
+                       The Hyps_i are in the context. *)
+    | (* Proving [P_h x -> P_r x] *)
+      apply H ; (* Replaces goal [P_r x] with [H'] *)
+      clearall ; (* H' talks about fresh variables *)
+      intros_namelast H ;
+      full_destruct ; (* Destructing H results in one goal per case, and separates the hypotheses *)
+      blindrewrite ;  (* not much to do, each clause should be proved with a rule,
                        we just try to rewrite [a = f x1 ... xn] if it exists *)
-    try now (constructor;auto) ].
+    eauto using P ]
+  in lazymatch goal with 
+  | |- ?P _ _ _ _ _ = _ => body P
+  | |- ?P _ _ _ _ = _ => body P
+  | |- ?P _ _ _ = _ => body P
+  | |- ?P _ _ = _ => body P
+  | |- ?P _ = _ => body P
+  | |- ?P = _ => body P end.
 
 (*****************************************************************************)
 (* For function inverses *)
@@ -2098,11 +2107,9 @@ Definition ZBOT {A : Type'} := @INJP A (@INJN A (NUMERAL 0)) (@ε (N -> A -> Pro
 Lemma ZBOT_def {A : Type'} : (@ZBOT A) = (@INJP A (@INJN A (NUMERAL N0)) (@ε (N -> A -> Prop) (fun z : N -> A -> Prop => True))).
 Proof. exact erefl. Qed.
 
-Inductive _ZRECSPACE {A : Type'} : (N -> A -> Prop) -> Prop :=
-| ZRECSPACE0 : _ZRECSPACE ZBOT
-| ZRECSPACE1 c i r : (forall n, _ZRECSPACE (r n)) -> _ZRECSPACE (ZCONSTR c i r).
-
-Definition ZRECSPACE {A:Type'} := @_ZRECSPACE A.
+Inductive ZRECSPACE {A : Type'} : (N -> A -> Prop) -> Prop :=
+| ZRECSPACE0 : ZRECSPACE ZBOT
+| ZRECSPACE1 c i r : (forall n, ZRECSPACE (r n)) -> ZRECSPACE (ZCONSTR c i r).
 
 Lemma ZRECSPACE_def {A : Type'} : (@ZRECSPACE A) = (fun a : N -> A -> Prop => forall ZRECSPACE' : (N -> A -> Prop) -> Prop, (forall a' : N -> A -> Prop, ((a' = (@ZBOT A)) \/ (exists c : N, exists i : A, exists r : N -> N -> A -> Prop, (a' = (@ZCONSTR A c i r)) /\ (forall n : N, ZRECSPACE' (r n)))) -> ZRECSPACE' a') -> ZRECSPACE' a).
 Proof. ind_align. Qed.
