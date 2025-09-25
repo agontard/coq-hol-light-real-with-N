@@ -469,7 +469,7 @@ Tactic Notation (at level 0) "breakgoal" "by" tactic(solvetac) :=
   | |- _ \/ _ => left + right ; body (* Try both *)
   | |- _ /\ _ => split ; body
   | |- exists _,_ => eexists ; body (* The witness should be obvious *)
-  | |- _ => first [by eauto | by solvetac] end (* if solvetac cannot do the job,
+  | |- _ => first [by eauto | by solvetac | reflexivity] end (* if solvetac cannot do the job,
                                                   it fails to branch back. *)
   in body.
 
@@ -671,7 +671,7 @@ Ltac _dest_mk_inductive :=
     intros (x,<-) ;
     induction x ; let P := fresh in
     let H' := fresh in
-    intros P H' ; apply H' ; try breakgoal ].
+    intros P H' ; try match goal with H : _ |- _ => specialize (H P) end ; apply H' ; try breakgoal ].
 
 (* - Finally, prove the definition of all constructors ( the lemmas _123456_def and C_def
      right under their definition in T_terms.v, replacing them with the new definition ).
@@ -2350,8 +2350,6 @@ Proof.
   _dest_mk_inductive.
   - now exists nil.
   - exists (cons x0 x2). now rewrite <- H0.
-  - right. exists a. exists (_dest_list x0). split.
-    reflexivity. now apply IHx0.
 Qed.
 
 Lemma axiom_16 : forall {A : Type'} (r : recspace A), ((fun a : recspace A => forall list : (recspace A) -> Prop, (forall a' : recspace A, ((a' = (@CONSTR A (NUMERAL N0) (@ε A (fun v : A => True)) (fun n : N => @BOTTOM A))) \/ (exists a0 : A, exists a1 : recspace A, (a' = ((fun a0' : A => fun a1' : recspace A => @CONSTR A (N.succ (NUMERAL N0)) a0' (@FCONS (recspace A) a1' (fun n : N => @BOTTOM A))) a0 a1)) /\ (list a1))) -> list a') -> list a) r) = ((@_dest_list A (@_mk_list A r)) = r).
