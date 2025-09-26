@@ -660,18 +660,17 @@ Ltac _mk_dest_inductive := finv_inv_l ; try _dest_inj_inductive.
 
 Ltac _dest_mk_inductive :=
   let H := fresh in 
-  let x := fresh "x" in 
+  let x := fresh "x" in
+  let P := fresh "P" in
   intros ; apply finv_inv_r ;
   [ intro H ; apply H ;
     clear H ; intros x H ;
     full_destruct ; rewrite H ;
     clear H ; simpl in *
-  | let x := fresh "x" in
-    (* simply inducting over [x] such that [_dest_ x = r]. *)
-    intros (x,<-) ;
-    induction x ; let P := fresh in
-    let H' := fresh in
-    intros P H' ; try match goal with H : _ |- _ => specialize (H P) end ; apply H' ; try breakgoal ].
+  | (* simply inducting over [x] such that [_dest_ x = r]. *)
+    intros (x,<-) P ;
+    induction x ;
+    intros H ; apply H ; try breakgoal ].
 
 (* - Finally, prove the definition of all constructors ( the lemmas _123456_def and C_def
      right under their definition in T_terms.v, replacing them with the new definition ).
@@ -2338,22 +2337,12 @@ Definition _mk_list {A : Type'} := finv (@_dest_list A).
 Lemma axiom_15 {A : Type'} : forall (a : list A), (@_mk_list A (@_dest_list A a)) = a.
 Proof. _mk_dest_inductive. Qed.
 
-Definition list_pred {A : Type'} (r : recspace A) :=
-  forall list0 : recspace A -> Prop,
-  (forall a' : recspace A,
-  a' = CONSTR (NUMERAL N0) (ε (fun _ : A => True)) (fun _ : N => BOTTOM) \/
-  (exists (a0 : A) (a1 : recspace A), a' = CONSTR (N.succ (NUMERAL N0)) a0 (FCONS a1 (fun _ : N => BOTTOM)) /\ list0 a1) -> list0 a')
-  -> list0 r.
-
-Lemma axiom_16' : forall {A : Type'} (r : recspace A), (list_pred r) = ((@_dest_list A (@_mk_list A r)) = r).
+Lemma axiom_16 : forall {A : Type'} (r : recspace A), ((fun a : recspace A => forall list : (recspace A) -> Prop, (forall a' : recspace A, ((a' = (@CONSTR A (NUMERAL N0) (@ε A (fun v : A => True)) (fun n : N => @BOTTOM A))) \/ (exists a0 : A, exists a1 : recspace A, (a' = ((fun a0' : A => fun a1' : recspace A => @CONSTR A (N.succ (NUMERAL N0)) a0' (@FCONS (recspace A) a1' (fun n : N => @BOTTOM A))) a0 a1)) /\ (list a1))) -> list a') -> list a) r) = ((@_dest_list A (@_mk_list A r)) = r).
 Proof.
   _dest_mk_inductive.
   - now exists nil.
   - exists (cons x0 x2). now rewrite <- H0.
 Qed.
-
-Lemma axiom_16 : forall {A : Type'} (r : recspace A), ((fun a : recspace A => forall list : (recspace A) -> Prop, (forall a' : recspace A, ((a' = (@CONSTR A (NUMERAL N0) (@ε A (fun v : A => True)) (fun n : N => @BOTTOM A))) \/ (exists a0 : A, exists a1 : recspace A, (a' = ((fun a0' : A => fun a1' : recspace A => @CONSTR A (N.succ (NUMERAL N0)) a0' (@FCONS (recspace A) a1' (fun n : N => @BOTTOM A))) a0 a1)) /\ (list a1))) -> list a') -> list a) r) = ((@_dest_list A (@_mk_list A r)) = r).
-Proof. exact @axiom_16'. Qed.
 
 Lemma NIL_def {A : Type'} : (@nil A) = (@_mk_list A (@CONSTR A (NUMERAL N0) (@ε A (fun v : A => True)) (fun n : N => @BOTTOM A))).
 Proof. constr_align (@axiom_15 A). Qed.
@@ -3121,7 +3110,7 @@ Qed.
 Proof.
 Abort.*)
 
-(*****************************************************************************)
+(************************************************_dest_mk_ind*****************************)
 (* HOL-Light definition of real numbers. *)
 (*****************************************************************************)
 
