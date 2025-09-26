@@ -469,9 +469,9 @@ Tactic Notation (at level 0) "breakgoal" "by" tactic(solvetac) :=
   | |- _ \/ _ => left + right ; body (* Try both *)
   | |- _ /\ _ => split ; body
   | |- exists _,_ => eexists ; body (* The witness should be obvious *)
-  | |- _ => first [by eauto | by solvetac | reflexivity] end (* if solvetac cannot do the job,
-                                                  it fails to branch back. *)
-  in body.
+  | |- _ = _ => reflexivity
+  | |- _ => first [by eauto | by solvetac] end
+  in body. (* if solvetac cannot do the job, it fails to branch back. *)
 
 Ltac breakgoal := breakgoal by idtac.
 
@@ -3110,7 +3110,7 @@ Qed.
 Proof.
 Abort.*)
 
-(************************************************_dest_mk_ind*****************************)
+(*****************************************************************************)
 (* HOL-Light definition of real numbers. *)
 (*****************************************************************************)
 
